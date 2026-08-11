@@ -212,18 +212,20 @@
       <div class="icon">📄</div>
       <h2>Upload your data export</h2>
       <p>Drop the .xlsx file here, or click below to browse.<br>
-      This tool reads the <b>xD</b> tab (required) and <b>xC</b> tab (optional, for the "Active only" filter).</p>
+      Works with either the <b>xD/xC</b> style export, or a <b>BSS INFOVIEW</b> style export — this tool auto-detects which one you give it.</p>
       <button class="btn-primary" id="browseBtn">Choose file</button>
       <input type="file" id="fileInput" accept=".xlsx,.xls">
       <div id="fileLabel"></div>
       <div id="uploadError"></div>
       <div class="req">
-        <b>What this needs from your file:</b><br>
-        A sheet named <b>xD</b> containing these columns (any order):<br>
-        CMPNY_NM, CUG_NM, ACCT_NUM, SUBS_MSISDN, SUBS_PRMRY_OFRNG, category,
-        EST_EXPIRY_DATE, commitment, occ, net_cv.<br>
-        A sheet named <b>xC</b> with MSISDN and STATUS columns is optional — if it's there,
-        you'll be able to filter to active lines only.<br><br>
+        <b>Format 1 — xD/xC style:</b><br>
+        A sheet named <b>xD</b> with: CMPNY_NM, CUG_NM, ACCT_NUM, SUBS_MSISDN, SUBS_PRMRY_OFRNG,
+        category, EST_EXPIRY_DATE, commitment, occ, net_cv.<br>
+        A sheet named <b>xC</b> with MSISDN and STATUS is optional, for the "Active only" filter.<br><br>
+        <b>Format 2 — INFOVIEW style:</b><br>
+        Any sheet with: BILLING_ACCOUNT_NUMBER, MSISDN, PRODUCT_NAME, LOB_NEW, STATUS,
+        CONTRACT_END_DATE, COMMITMENT_FEE, COMPANY_NAME, BSS_ID. Status and source
+        (CELCOM/DIGI) are picked up automatically here — no separate tab needed.<br><br>
         <b>Worked out for you automatically:</b> Remaining Months, Penalty Fee
         (monthly fee × remaining months + RM100 admin), and Renewal Type
         (P1 ≤2 months, P2 ≤6, P3 ≤9, P4 beyond, or No Contract if expired).
@@ -262,7 +264,7 @@
         <button class="btn-line clear-btn" id="clearFiltersBtn">Clear Filters</button>
       </div>
       <div class="filter-checks">
-        <label class="chk" id="activeOnlyWrap"><input type="checkbox" id="activeOnlyChk"> Active only (xC)</label>
+        <label class="chk" id="activeOnlyWrap"><input type="checkbox" id="activeOnlyChk"> Active only</label>
         <label class="chk"><input type="checkbox" id="urgentOnlyChk"> No Contract, P1 or P2 only</label>
         <div class="msisdn-inline">
           <input type="text" id="msisdnInput" placeholder="Jump to MSISDN">
@@ -316,6 +318,7 @@
 <script>
 (function(){
   const REQUIRED_HEADERS = ['CMPNY_NM','CUG_NM','ACCT_NUM','SUBS_MSISDN','SUBS_PRMRY_OFRNG','category','EST_EXPIRY_DATE','commitment','occ','net_cv'];
+  const INFOVIEW_HEADERS = ['BILLING_ACCOUNT_NUMBER','MSISDN','PRODUCT_NAME','LOB_NEW','STATUS','CONTRACT_END_DATE','COMMITMENT_FEE','COMPANY_NAME','BSS_ID'];
 
   let allRows = [];
   let xcStatusMap = new Map();
@@ -380,14 +383,29 @@
       try{
         const data = new Uint8Array(e.target.result);
         const wb = XLSX.read(data, {type:'array', cellDates:true});
-        const parsed = parseWorkbook(wb);
+        const xdRows = parseWorkbook(wb);
+        const infoviewRows = parseInfoviewWorkbook(wb);
+        const parsed = xdRows.concat(infoviewRows);
         if(!parsed.length){
-          showError('Could not find the columns this tool needs. Check that a sheet has a header row with: ' + REQUIRED_HEADERS.join(', ') + '.');
+          showError('Could not find the columns this tool needs. This tool accepts either an xD-style export (with headers like ' +
+            REQUIRED_HEADERS.slice(0,4).join(', ') + ', ...) or an INFOVIEW-style export (with headers like ' +
+            INFOVIEW_HEADERS.slice(0,4).join(', ') + ', ...).');
           fileLabel.textContent = '';
           return;
         }
-        allRows = parsed;
+        // Renumber sequentially across whichever formats were found.
+        parsed.forEach((r,i) => { r.no = i+1; });
+
+        // Attach active/inactive status: INFOVIEW rows already carry their own STATUS.
+        // xD rows (older export format) get status via the optional xC tab, matched by MSISDN.
         xcStatusMap = parseXC(wb);
+        parsed.forEach(r => {
+          if(r.status === undefined || r.status === null){
+            r.status = xcStatusMap.get(normMsisdn(r.msisdn)) || null;
+          }
+        });
+
+        allRows = parsed;
         fileLabel.textContent = '';
         launchApp(file.name);
       }catch(err){
@@ -406,21 +424,34 @@
       const ws = wb.Sheets[name];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
       if(!rows.length) continue;
-      const headerRowIdx = findHeaderRow(rows);
+      const headerRowIdx = findHeaderRow(rows, REQUIRED_HEADERS, 7);
       if(headerRowIdx === -1) continue;
       return {rows, headerRowIdx};
     }
     return null;
   }
 
-  function findHeaderRow(rows){
+  function findHeaderRow(rows, headers, minHits){
     const scanLimit = Math.min(rows.length, 5);
     for(let i=0;i<scanLimit;i++){
       const row = rows[i].map(v => (v===null||v===undefined) ? '' : String(v).trim());
-      const hits = REQUIRED_HEADERS.filter(h => row.includes(h)).length;
-      if(hits >= 7) return i;
+      const hits = headers.filter(h => row.includes(h)).length;
+      if(hits >= minHits) return i;
     }
     return -1;
+  }
+
+  function findInfoviewSheet(wb){
+    // Sheet name is dynamic (e.g. INFOVIEW_CD04_2026-08-11-1013), so scan by headers only.
+    for(const name of wb.SheetNames){
+      const ws = wb.Sheets[name];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+      if(!rows.length) continue;
+      const headerRowIdx = findHeaderRow(rows, INFOVIEW_HEADERS, 6);
+      if(headerRowIdx === -1) continue;
+      return {rows, headerRowIdx};
+    }
+    return null;
   }
 
   function parseWorkbook(wb){
@@ -462,6 +493,57 @@
         fee: commitment,
         occ: occ,
         final: finalPrice,
+        remaining: calc.remainingMonths,
+        penalty: calc.penalty,
+        renewal: calc.renewalType
+      };
+      rec.search = [rec.comp, rec.cug, rec.acct, rec.msisdn, rec.product, rec.category]
+        .map(v => String(v ?? '')).join(' ').toLowerCase();
+      out.push(rec);
+    }
+    return out;
+  }
+
+  function parseInfoviewWorkbook(wb){
+    const found = findInfoviewSheet(wb);
+    if(!found) return [];
+    const {rows, headerRowIdx} = found;
+    const header = rows[headerRowIdx].map(v => (v===null||v===undefined) ? '' : String(v).trim());
+    const idx = {};
+    INFOVIEW_HEADERS.forEach(h => { idx[h] = header.indexOf(h); });
+    if(Object.values(idx).some(v => v === -1)) return [];
+
+    const out = [];
+    for(let r = headerRowIdx+1; r < rows.length; r++){
+      const row = rows[r];
+      if(!row || row.every(v => v===null || v==='' || v===undefined)) continue;
+      const msisdn = row[idx['MSISDN']] ?? '';
+      const comp = row[idx['COMPANY_NAME']] ?? '';
+      if(comp === '' && (msisdn === null || msisdn === '')) continue;
+
+      let expiry = row[idx['CONTRACT_END_DATE']];
+      if(expiry && !(expiry instanceof Date)) expiry = excelSerialToDate(expiry);
+
+      const commitment = toNumber(row[idx['COMMITMENT_FEE']]);
+      const calc = computeDerived(expiry, commitment);
+
+      const bss = row[idx['BSS_ID']] ? String(row[idx['BSS_ID']]).trim().toUpperCase() : '';
+      const status = row[idx['STATUS']] ? String(row[idx['STATUS']]).trim().toUpperCase() : null;
+
+      const rec = {
+        source: bss || 'INFOVIEW',
+        status: status,
+        no: 0,
+        comp: comp || '',
+        cug: comp || '',
+        acct: row[idx['BILLING_ACCOUNT_NUMBER']] ?? '',
+        msisdn: msisdn,
+        product: row[idx['PRODUCT_NAME']] ?? '',
+        category: row[idx['LOB_NEW']] ?? '',
+        expiry: expiry,
+        fee: commitment,
+        occ: null,
+        final: commitment,
         remaining: calc.remainingMonths,
         penalty: calc.penalty,
         renewal: calc.renewalType
@@ -560,8 +642,9 @@
     uploadStage.style.display = 'none';
     appStage.style.display = 'block';
     topActions.style.display = 'flex';
+    const withStatus = allRows.filter(r => r.status).length;
     topSub.textContent = fileName + ' — ' + allRows.length.toLocaleString() + ' lines loaded' +
-      (xcStatusMap.size ? ' · xC status linked (' + xcStatusMap.size.toLocaleString() + ')' : '');
+      (withStatus ? ' · ' + withStatus.toLocaleString() + ' with status data' : '');
     populateCategoryOptions();
     updateActiveOnlyAvailability();
     buildSummary();
@@ -582,10 +665,10 @@
   }
 
   function updateActiveOnlyAvailability(){
-    const has = xcStatusMap.size > 0;
+    const has = allRows.some(r => r.status);
     activeOnlyChk.disabled = !has;
     activeOnlyWrap.classList.toggle('disabled', !has);
-    activeOnlyWrap.title = has ? '' : 'xC tab not found in this file';
+    activeOnlyWrap.title = has ? '' : 'No status data found in this file (needs an xC tab, or a STATUS column)';
     if(!has) activeOnlyChk.checked = false;
   }
 
@@ -624,8 +707,7 @@
     if(activeFilter !== 'all' && r.renewal !== activeFilter) return false;
     if(categorySelect.value !== 'all' && String(r.category ?? '').trim().toLowerCase() !== categorySelect.value) return false;
     if(activeOnlyChk.checked && !activeOnlyChk.disabled){
-      const status = xcStatusMap.get(normMsisdn(r.msisdn));
-      if(status !== 'ACTIVE') return false;
+      if(r.status !== 'ACTIVE') return false;
     }
     if(urgentOnlyChk.checked){
       if(!['No contract','P1','P2'].includes(r.renewal)) return false;
