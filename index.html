@@ -1,932 +1,151 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Contract Renewal Search Centre</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CY xC/xD Renewal Search Centre</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-  :root{
-    --ink:#12213B;
-    --ink-soft:#4A5A78;
-    --bg:#F3F5F9;
-    --card:#FFFFFF;
-    --line:#DCE2ED;
-    --accent:#0B5FBF;
-    --accent-soft:#E8F0FC;
-    --urgent:#D6304A;
-    --urgent-soft:#FBE7EA;
-    --warn:#C97E12;
-    --warn-soft:#FBEEDD;
-    --mid:#B08900;
-    --mid-soft:#FBF3D8;
-    --safe:#1E8A5F;
-    --safe-soft:#E4F5EE;
-    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0; font-family:var(--sans); background:var(--bg); color:var(--ink);
-    -webkit-font-smoothing:antialiased;
-  }
-  .topbar{
-    background:linear-gradient(120deg,#0B2A5B,#0B5FBF 65%,#0E7FCB);
-    color:#fff; padding:22px 28px; display:flex; align-items:center; justify-content:space-between;
-    flex-wrap:wrap; gap:12px;
-  }
-  .topbar h1{margin:0; font-size:20px; font-weight:700; letter-spacing:.2px;}
-  .topbar .sub{font-size:12.5px; opacity:.85; margin-top:4px; font-weight:400;}
-  .topbar-actions{display:flex; gap:10px; align-items:center;}
-  button{
-    font-family:var(--sans); cursor:pointer; border:none; border-radius:8px;
-    font-size:13.5px; font-weight:600; padding:9px 15px; transition:.15s ease;
-  }
-  .btn-ghost{background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.35);}
-  .btn-ghost:hover{background:rgba(255,255,255,.24);}
-  .btn-primary{background:var(--accent); color:#fff;}
-  .btn-primary:hover{background:#094c99;}
-  .btn-line{background:#fff; color:var(--ink); border:1px solid var(--line);}
-  .btn-line:hover{border-color:var(--accent); color:var(--accent);}
-  .total-lines{
-    background:rgba(255,255,255,.95); color:var(--ink); border-radius:8px;
-    padding:9px 16px; font-size:13.5px; font-weight:700; white-space:nowrap;
-  }
-  .total-lines .n{font-size:15px; font-weight:800; color:var(--accent);}
-
-  .wrap{max-width:1280px; margin:0 auto; padding:26px 24px 60px;}
-
-  /* ---------- Upload state ---------- */
-  #uploadStage{display:flex; align-items:center; justify-content:center; min-height:60vh;}
-  .dropzone{
-    background:var(--card); border:2px dashed #B9C6DE; border-radius:16px;
-    width:100%; max-width:620px; padding:52px 40px; text-align:center;
-    transition:.15s ease;
-  }
-  .dropzone.drag{border-color:var(--accent); background:var(--accent-soft);}
-  .dropzone .icon{font-size:38px; margin-bottom:8px;}
-  .dropzone h2{margin:6px 0 6px; font-size:18px;}
-  .dropzone p{margin:0 0 20px; color:var(--ink-soft); font-size:13.5px; line-height:1.6;}
-  .dropzone .req{
-    text-align:left; background:var(--bg); border:1px solid var(--line); border-radius:10px;
-    padding:14px 16px; font-size:12.5px; color:var(--ink-soft); margin-top:22px; line-height:1.7;
-  }
-  .dropzone .req b{color:var(--ink);}
-  input[type=file]{display:none;}
-  #fileLabel{font-size:12.5px; color:var(--ink-soft); margin-top:14px; min-height:16px;}
-  #uploadError{
-    display:none; margin-top:16px; background:var(--urgent-soft); color:var(--urgent);
-    border:1px solid #F3C1C9; border-radius:8px; padding:10px 14px; font-size:13px; text-align:left;
-  }
-
-  /* ---------- Dashboard state ---------- */
-  #appStage{display:none;}
-  .summary{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:20px;}
-  .card{
-    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px;
-    cursor:pointer; transition:.15s ease; border-left:4px solid var(--line);
-  }
-  .card:hover{transform:translateY(-2px); box-shadow:0 6px 18px rgba(18,33,59,.08);}
-  .card.active{outline:2px solid var(--accent); outline-offset:-2px;}
-  .card .num{font-size:24px; font-weight:800; line-height:1;}
-  .card .lbl{font-size:11.5px; color:var(--ink-soft); margin-top:6px; font-weight:600; text-transform:uppercase; letter-spacing:.4px;}
-  .card.c-all{border-left-color:var(--accent);}
-  .card.c-none{border-left-color:var(--urgent);}
-  .card.c-p1{border-left-color:var(--urgent);}
-  .card.c-p2{border-left-color:var(--warn);}
-  .card.c-p3{border-left-color:var(--mid);}
-  .card.c-p4{border-left-color:var(--safe);}
-
-  .filter-panel{
-    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px;
-    margin-bottom:16px;
-  }
-  .filter-grid{
-    display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap;
-  }
-  .f-field{display:flex; flex-direction:column; gap:6px;}
-  .f-field label{font-size:12px; font-weight:700; color:var(--ink);}
-  .f-field input, .f-field select{
-    padding:9px 12px; border:1px solid var(--line); border-radius:8px;
-    font-size:13.5px; font-family:var(--sans); background:var(--bg); color:var(--ink);
-  }
-  .f-field input:focus, .f-field select:focus{outline:none; border-color:var(--accent); background:#fff;}
-  .f-search{flex:1 1 320px;}
-  .f-field select{min-width:180px; cursor:pointer;}
-  .clear-btn{align-self:flex-end;}
-  .filter-checks{
-    display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin-top:14px;
-    padding-top:14px; border-top:1px solid #EEF1F6;
-  }
-  .chk{display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink-soft); cursor:pointer; user-select:none;}
-  .chk input{cursor:pointer;}
-  .chk.disabled{opacity:.5; cursor:not-allowed;}
-  .chk.disabled input{cursor:not-allowed;}
-  .msisdn-inline{display:flex; gap:6px; margin-left:auto;}
-  .msisdn-inline input{
-    padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px;
-    font-family:var(--mono); background:var(--bg); width:160px;
-  }
-  .count-pill{font-size:12.5px; color:var(--ink-soft); white-space:nowrap; padding:0 4px;}
-
-  .table-shell{
-    background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden;
-  }
-  .table-scroll{overflow:auto; max-height:62vh;}
-  table{width:100%; border-collapse:collapse; font-size:12.8px;}
-  thead th{
-    position:sticky; top:0; background:#F7F9FC; text-align:left; padding:10px 12px;
-    border-bottom:1px solid var(--line); font-weight:700; color:var(--ink); white-space:nowrap;
-    cursor:pointer; user-select:none;
-  }
-  thead th:hover{color:var(--accent);}
-  thead th .arrow{opacity:.5; font-size:10px; margin-left:3px;}
-  tbody td{padding:9px 12px; border-bottom:1px solid #EEF1F6; white-space:nowrap;}
-  tbody tr{cursor:pointer;}
-  tbody tr:hover{background:var(--accent-soft);}
-  .mono{font-family:var(--mono);}
-  .tag{
-    display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:700;
-  }
-  .tag-none{background:var(--urgent-soft); color:var(--urgent);}
-  .tag-p1{background:var(--urgent-soft); color:var(--urgent);}
-  .tag-p2{background:var(--warn-soft); color:var(--warn);}
-  .tag-p3{background:var(--mid-soft); color:var(--mid);}
-  .tag-p4{background:var(--safe-soft); color:var(--safe);}
-  .tag-blank{background:#EEF1F6; color:var(--ink-soft);}
-  .empty-row td{text-align:center; padding:40px; color:var(--ink-soft);}
-
-  /* ---------- Detail modal ---------- */
-  .overlay{
-    display:none; position:fixed; inset:0; background:rgba(18,33,59,.45);
-    align-items:center; justify-content:center; z-index:50; padding:20px;
-  }
-  .modal{
-    background:#fff; border-radius:14px; max-width:520px; width:100%; max-height:86vh;
-    overflow:auto; padding:24px 26px;
-  }
-  .modal h3{margin:0 0 2px; font-size:17px;}
-  .modal .msub{color:var(--ink-soft); font-size:12.5px; margin-bottom:16px;}
-  .modal .row{display:flex; justify-content:space-between; gap:14px; padding:8px 0; border-bottom:1px solid #F0F2F6; font-size:13.5px;}
-  .modal .row span:first-child{color:var(--ink-soft);}
-  .modal .row span:last-child{font-weight:600; text-align:right;}
-  .modal .close{float:right; background:none; color:var(--ink-soft); font-size:20px; padding:0; line-height:1;}
-  .modal .close:hover{color:var(--ink);}
-  .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-soft); margin:14px 2px 0;}
-  .legend span{display:inline-flex; align-items:center; gap:5px;}
-  .dot{width:8px; height:8px; border-radius:50%; display:inline-block;}
-
-  @media (max-width:900px){
-    .summary{grid-template-columns:repeat(3,1fr);}
-  }
-  @media (max-width:560px){
-    .summary{grid-template-columns:repeat(2,1fr);}
-    .filter-grid{flex-direction:column; align-items:stretch;}
-    .filter-checks{flex-direction:column; align-items:stretch;}
-    .msisdn-inline{margin-left:0;}
-    .msisdn-inline input{width:auto; flex:1;}
-  }
+:root{--blue:#0057b8;--blue2:#0b75d1;--ink:#172033;--muted:#6b7280;--line:#dfe5ee;--bg:#f4f7fb;--card:#fff;--green:#087f5b;--amber:#b26a00;--red:#c92a2a}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;padding:24px 28px;box-shadow:0 2px 12px #0002}
+header h1{margin:0 0 5px;font-size:24px} header p{margin:0;opacity:.9;font-size:13px}
+main{padding:20px;max-width:1700px;margin:auto}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 4px 18px #1720330d;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:12px;align-items:end}.field label{display:block;font-size:12px;font-weight:700;color:#475569;margin:0 0 6px}.field input,.field select{width:100%;height:42px;border:1px solid #cfd8e6;border-radius:9px;padding:0 11px;background:#fff;color:var(--ink)}
+button{height:42px;border:0;border-radius:9px;padding:0 15px;font-weight:700;cursor:pointer}.primary{background:var(--blue);color:#fff}.secondary{background:#e9f2fd;color:var(--blue)}.ghost{background:#eef1f5;color:#334155}.danger{background:#fff0f0;color:var(--red)}button:disabled{opacity:.45;cursor:not-allowed}
+.upload{border:2px dashed #b9c9dc;border-radius:12px;padding:16px;text-align:center;background:#f8fbff}.upload.drag{border-color:var(--blue);background:#edf6ff}.upload input{display:none}.upload strong{color:var(--blue)}
+.status{font-size:13px;margin-top:10px;color:var(--muted)}.stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.pill{border:1px solid var(--line);border-radius:999px;padding:7px 11px;background:#fff;font-size:12px}.pill b{margin-left:4px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.tablewrap{overflow:auto;max-height:68vh;border:1px solid var(--line);border-radius:10px}table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px}th,td{padding:9px 10px;border-right:1px solid #e8edf4;border-bottom:1px solid #e8edf4;white-space:nowrap}th{position:sticky;top:0;background:#edf4fc;color:#1e3a5f;z-index:2;text-align:left}tr:hover td{background:#f7fbff}.num{text-align:right}.tag{display:inline-block;border-radius:999px;padding:3px 8px;font-weight:700;font-size:11px}.p0{background:#ffe3e3;color:#a51111}.p1{background:#fff3bf;color:#8a5200}.p2{background:#d3f9d8;color:#087f5b}.p3{background:#dbeafe;color:#1d4ed8}.p4{background:#ede9fe;color:#6d28d9}.empty{text-align:center;padding:36px;color:var(--muted)}
+.small{font-size:11px;color:var(--muted)}.checkboxes{display:flex;gap:12px;flex-wrap:wrap;padding-top:7px}.checkboxes label{font-size:12px}.checkboxes input{vertical-align:middle}.notice{background:#fff8db;border:1px solid #ffe08a;color:#73510d;border-radius:9px;padding:9px 11px;font-size:12px;margin-top:10px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.actions button{flex:1}main{padding:12px}header{padding:18px}}
 </style>
 </head>
 <body>
-
-<div class="topbar">
-  <div>
-    <h1>Contract Renewal Search Centre</h1>
-    <div class="sub" id="topSub">Upload your export to begin</div>
+<header><h1>CY xC/xD Renewal Search Centre</h1><p>Upload either your xC/xD workbook or the single-sheet Renewal Search export. Processing stays in your browser.</p></header>
+<main>
+<div class="card">
+  <div id="dropZone" class="upload">
+    <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsb,.csv" />
+    <div><strong>Click to upload</strong> or drag your Excel file here</div>
+    <div class="small">Accepted formats: xC/xD tabs OR either supported Renewal Search export. Header order does not matter.</div>
   </div>
-  <div class="topbar-actions" id="topActions" style="display:none;">
-    <div class="total-lines" id="topLineCount">0 lines</div>
-    <button class="btn-ghost" id="copyBtn">Copy table</button>
-    <button class="btn-ghost" id="exportCsvBtn">Export CSV</button>
-    <button class="btn-ghost" id="exportXlsxBtn">Export Excel</button>
-    <button class="btn-ghost" id="newFileBtn">Upload new file</button>
-  </div>
-</div>
-
-<div class="wrap">
-
-  <!-- UPLOAD STAGE -->
-  <div id="uploadStage">
-    <div class="dropzone" id="dropzone">
-      <div class="icon">📄</div>
-      <h2>Upload your data export</h2>
-      <p>Drop the .xlsx file here, or click below to browse.<br>
-      Works with either the <b>xD/xC</b> style export, or a <b>BSS INFOVIEW</b> style export — this tool auto-detects which one you give it.</p>
-      <button class="btn-primary" id="browseBtn">Choose file</button>
-      <input type="file" id="fileInput" accept=".xlsx,.xls">
-      <div id="fileLabel"></div>
-      <div id="uploadError"></div>
-      <div class="req">
-        <b>Format 1 — xD/xC style:</b><br>
-        A sheet named <b>xD</b> with: CMPNY_NM, CUG_NM, ACCT_NUM, SUBS_MSISDN, SUBS_PRMRY_OFRNG,
-        category, EST_EXPIRY_DATE, commitment, occ, net_cv.<br>
-        A sheet named <b>xC</b> with MSISDN and STATUS is optional, for the "Active only" filter.<br><br>
-        <b>Format 2 — INFOVIEW style:</b><br>
-        Any sheet with: BILLING_ACCOUNT_NUMBER, MSISDN, PRODUCT_NAME, LOB_NEW, STATUS,
-        CONTRACT_END_DATE, COMMITMENT_FEE, COMPANY_NAME, BSS_ID. Status and source
-        (CELCOM/DIGI) are picked up automatically here — no separate tab needed.<br><br>
-        <b>Worked out for you automatically:</b> Remaining Months, Penalty Fee
-        (monthly fee × remaining months + RM100 admin), and Renewal Type
-        (P1 ≤2 months, P2 ≤6, P3 ≤9, P4 beyond, or No Contract if expired).
-      </div>
-    </div>
-  </div>
-
-  <!-- APP STAGE -->
-  <div id="appStage">
-
-    <div class="summary" id="summaryCards"></div>
-
-    <div class="filter-panel">
-      <div class="filter-grid">
-        <div class="f-field f-search">
-          <label for="searchInput">Search all selected columns</label>
-          <input type="text" id="searchInput" placeholder="Search company, CUG, MSISDN, product, account code...">
-        </div>
-        <div class="f-field">
-          <label for="renewalSelect">Renewal Type</label>
-          <select id="renewalSelect">
-            <option value="all">All</option>
-            <option value="No contract">No Contract</option>
-            <option value="P1">P1</option>
-            <option value="P2">P2</option>
-            <option value="P3">P3</option>
-            <option value="P4">P4</option>
-          </select>
-        </div>
-        <div class="f-field">
-          <label for="categorySelect">Source / Category</label>
-          <select id="categorySelect">
-            <option value="all">All sources</option>
-          </select>
-        </div>
-        <button class="btn-line clear-btn" id="clearFiltersBtn">Clear Filters</button>
-      </div>
-      <div class="filter-checks">
-        <label class="chk" id="activeOnlyWrap"><input type="checkbox" id="activeOnlyChk"> Active only</label>
-        <label class="chk"><input type="checkbox" id="urgentOnlyChk"> No Contract, P1 or P2 only</label>
-        <div class="msisdn-inline">
-          <input type="text" id="msisdnInput" placeholder="Jump to MSISDN">
-          <button class="btn-line" id="msisdnGo">Go</button>
-        </div>
-        <div class="count-pill" id="resultCount"></div>
-      </div>
-    </div>
-
-    <div class="table-shell">
-      <div class="table-scroll">
-        <table id="dataTable">
-          <thead>
-            <tr>
-              <th data-key="source">Source</th>
-              <th data-key="no">No</th>
-              <th data-key="comp">Company</th>
-              <th data-key="cug">CUG Name</th>
-              <th data-key="acct">Account Code</th>
-              <th data-key="msisdn">MSISDN</th>
-              <th data-key="product">Product / Plan</th>
-              <th data-key="category">Category</th>
-              <th data-key="expiry">Expiry Date</th>
-              <th data-key="fee">Mthly Fee</th>
-              <th data-key="occ">OCC</th>
-              <th data-key="final">Final Price</th>
-              <th data-key="remaining">Remaining Mths</th>
-              <th data-key="penalty">Penalty Fee</th>
-              <th data-key="renewal">Renewal Type</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="legend">
-      <span><span class="dot" style="background:var(--urgent)"></span>No Contract / P1 — act now (0–2 mths)</span>
-      <span><span class="dot" style="background:var(--warn)"></span>P2 — 2–6 mths</span>
-      <span><span class="dot" style="background:var(--mid)"></span>P3 — 6–9 mths</span>
-      <span><span class="dot" style="background:var(--safe)"></span>P4 — beyond 9 mths</span>
-    </div>
-
+  <div id="status" class="status">No file loaded.</div>
+  <div id="notice" class="notice" style="display:none"></div>
+  <div class="stats">
+    <span class="pill">xC rows <b id="xcCount">0</b></span><span class="pill">xD rows <b id="xdCount">0</b></span><span class="pill">Renewal-file rows <b id="renewalCount">0</b></span><span class="pill">Combined <b id="totalCount">0</b></span><span class="pill">Results <b id="resultCount">0</b></span>
   </div>
 </div>
-
-<div class="overlay" id="overlay">
-  <div class="modal" id="modalBody"></div>
+<div class="card">
+  <div class="grid">
+    <div class="field"><label>Search all selected columns</label><input id="search" placeholder="Company, CUG, account, MSISDN, plan..." /></div>
+    <div class="field"><label>Renewal Type</label><select id="renewal"><option value="">All</option><option>No contract</option><option>P1</option><option>P2</option><option>P3</option><option>P4</option></select></div>
+    <div class="field"><label>Source / Category</label><select id="source"><option value="">All sources</option><option value="xC">xC</option><option value="xD">xD</option></select></div>
+    <button id="clear" class="ghost">Clear Filters</button>
+  </div>
+  <div class="checkboxes"><label><input id="activeOnly" type="checkbox"> Active only</label><label><input id="renewableOnly" type="checkbox"> No Contract, P1 or P2 only</label></div>
 </div>
-
+<div class="card">
+  <div class="actions" style="margin-bottom:12px"><button id="exportXlsx" class="primary" disabled>Export Results to Excel</button><button id="exportCsv" class="secondary" disabled>Export CSV</button><button id="copy" class="ghost" disabled>Copy Table</button></div>
+  <div class="tablewrap"><table><thead id="thead"></thead><tbody id="tbody"><tr><td class="empty">Upload a file to begin.</td></tr></tbody></table></div>
+</div>
+</main>
 <script>
-(function(){
-  const REQUIRED_HEADERS = ['CMPNY_NM','CUG_NM','ACCT_NUM','SUBS_MSISDN','SUBS_PRMRY_OFRNG','category','EST_EXPIRY_DATE','commitment','occ','net_cv'];
-  const INFOVIEW_HEADERS = ['BILLING_ACCOUNT_NUMBER','MSISDN','PRODUCT_NAME','LOB_NEW','STATUS','CONTRACT_END_DATE','COMMITMENT_FEE','COMPANY_NAME','BSS_ID'];
-
-  let allRows = [];
-  let xcStatusMap = new Map();
-  let activeFilter = 'all';
-  let sortKey = 'urgency';
-  let sortDir = 1;
-
-  const uploadStage = document.getElementById('uploadStage');
-  const appStage = document.getElementById('appStage');
-  const topActions = document.getElementById('topActions');
-  const topSub = document.getElementById('topSub');
-  const dropzone = document.getElementById('dropzone');
-  const fileInput = document.getElementById('fileInput');
-  const fileLabel = document.getElementById('fileLabel');
-  const uploadError = document.getElementById('uploadError');
-  const searchInput = document.getElementById('searchInput');
-  const renewalSelect = document.getElementById('renewalSelect');
-  const categorySelect = document.getElementById('categorySelect');
-  const activeOnlyChk = document.getElementById('activeOnlyChk');
-  const activeOnlyWrap = document.getElementById('activeOnlyWrap');
-  const urgentOnlyChk = document.getElementById('urgentOnlyChk');
-  const clearFiltersBtn = document.getElementById('clearFiltersBtn');
-  const msisdnInput = document.getElementById('msisdnInput');
-  const tableBody = document.getElementById('tableBody');
-  const resultCount = document.getElementById('resultCount');
-  const topLineCount = document.getElementById('topLineCount');
-  const overlay = document.getElementById('overlay');
-  const modalBody = document.getElementById('modalBody');
-
-  document.getElementById('browseBtn').addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
-
-  ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
-  ['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
-  dropzone.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if(f) handleFile(f); });
-
-  document.getElementById('newFileBtn').addEventListener('click', () => {
-    allRows = [];
-    fileInput.value = '';
-    fileLabel.textContent = '';
-    uploadError.style.display = 'none';
-    appStage.style.display = 'none';
-    topActions.style.display = 'none';
-    topSub.textContent = 'Upload your export to begin';
-    uploadStage.style.display = 'flex';
-  });
-
-  document.getElementById('exportCsvBtn').addEventListener('click', exportCSV);
-  document.getElementById('exportXlsxBtn').addEventListener('click', exportXLSX);
-  document.getElementById('copyBtn').addEventListener('click', copyTable);
-
-  function showError(msg){
-    uploadError.textContent = msg;
-    uploadError.style.display = 'block';
-  }
-
-  function handleFile(file){
-    uploadError.style.display = 'none';
-    fileLabel.textContent = 'Reading ' + file.name + ' ...';
-    const reader = new FileReader();
-    reader.onload = function(e){
-      try{
-        const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, {type:'array', cellDates:true});
-        const xdRows = parseWorkbook(wb);
-        const infoviewRows = parseInfoviewWorkbook(wb);
-        const parsed = xdRows.concat(infoviewRows);
-        if(!parsed.length){
-          showError('Could not find the columns this tool needs. This tool accepts either an xD-style export (with headers like ' +
-            REQUIRED_HEADERS.slice(0,4).join(', ') + ', ...) or an INFOVIEW-style export (with headers like ' +
-            INFOVIEW_HEADERS.slice(0,4).join(', ') + ', ...).');
-          fileLabel.textContent = '';
-          return;
-        }
-        // Renumber sequentially across whichever formats were found.
-        parsed.forEach((r,i) => { r.no = i+1; });
-
-        // Attach active/inactive status: INFOVIEW rows already carry their own STATUS.
-        // xD rows (older export format) get status via the optional xC tab, matched by MSISDN.
-        xcStatusMap = parseXC(wb);
-        parsed.forEach(r => {
-          if(r.status === undefined || r.status === null){
-            r.status = xcStatusMap.get(normMsisdn(r.msisdn)) || null;
-          }
-        });
-
-        allRows = parsed;
-        fileLabel.textContent = '';
-        launchApp(file.name);
-      }catch(err){
-        showError('Could not read that file. Make sure it is a valid .xlsx export. (' + err.message + ')');
-        fileLabel.textContent = '';
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  function findSheet(wb){
-    // Prefer a sheet literally named xD, else scan all sheets for the required headers.
-    const names = wb.SheetNames.slice();
-    names.sort((a,b) => (a.toLowerCase()==='xd' ? -1 : 0) - (b.toLowerCase()==='xd' ? -1 : 0));
-    for(const name of names){
-      const ws = wb.Sheets[name];
-      const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
-      if(!rows.length) continue;
-      const headerRowIdx = findHeaderRow(rows, REQUIRED_HEADERS, 7);
-      if(headerRowIdx === -1) continue;
-      return {rows, headerRowIdx};
-    }
-    return null;
-  }
-
-  function findHeaderRow(rows, headers, minHits){
-    const scanLimit = Math.min(rows.length, 5);
-    for(let i=0;i<scanLimit;i++){
-      const row = rows[i].map(v => (v===null||v===undefined) ? '' : String(v).trim());
-      const hits = headers.filter(h => row.includes(h)).length;
-      if(hits >= minHits) return i;
-    }
-    return -1;
-  }
-
-  function findInfoviewSheet(wb){
-    // Sheet name is dynamic (e.g. INFOVIEW_CD04_2026-08-11-1013), so scan by headers only.
-    for(const name of wb.SheetNames){
-      const ws = wb.Sheets[name];
-      const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
-      if(!rows.length) continue;
-      const headerRowIdx = findHeaderRow(rows, INFOVIEW_HEADERS, 6);
-      if(headerRowIdx === -1) continue;
-      return {rows, headerRowIdx};
-    }
-    return null;
-  }
-
-  function parseWorkbook(wb){
-    const found = findSheet(wb);
-    if(!found) return [];
-    const {rows, headerRowIdx} = found;
-    const header = rows[headerRowIdx].map(v => (v===null||v===undefined) ? '' : String(v).trim());
-    const idx = {};
-    REQUIRED_HEADERS.forEach(h => { idx[h] = header.indexOf(h); });
-    if(Object.values(idx).some(v => v === -1)) return [];
-
-    const out = [];
-    let no = 1;
-    for(let r = headerRowIdx+1; r < rows.length; r++){
-      const row = rows[r];
-      if(!row || row.every(v => v===null || v==='' || v===undefined)) continue;
-      const comp = row[idx['CMPNY_NM']] ?? '';
-      if(comp === '' && (row[idx['SUBS_MSISDN']] === null || row[idx['SUBS_MSISDN']] === '')) continue;
-
-      let expiry = row[idx['EST_EXPIRY_DATE']];
-      if(expiry && !(expiry instanceof Date)) expiry = excelSerialToDate(expiry);
-
-      const commitment = toNumber(row[idx['commitment']]);
-      const occ = toNumber(row[idx['occ']]);
-      const finalPrice = toNumber(row[idx['net_cv']]);
-
-      const calc = computeDerived(expiry, commitment);
-
-      const rec = {
-        source: 'xD',
-        no: no++,
-        comp: comp || '',
-        cug: row[idx['CUG_NM']] ?? '',
-        acct: row[idx['ACCT_NUM']] ?? '',
-        msisdn: row[idx['SUBS_MSISDN']] ?? '',
-        product: row[idx['SUBS_PRMRY_OFRNG']] ?? '',
-        category: row[idx['category']] ?? '',
-        expiry: expiry,
-        fee: commitment,
-        occ: occ,
-        final: finalPrice,
-        remaining: calc.remainingMonths,
-        penalty: calc.penalty,
-        renewal: calc.renewalType
-      };
-      rec.search = [rec.comp, rec.cug, rec.acct, rec.msisdn, rec.product, rec.category]
-        .map(v => String(v ?? '')).join(' ').toLowerCase();
-      out.push(rec);
-    }
-    return out;
-  }
-
-  function parseInfoviewWorkbook(wb){
-    const found = findInfoviewSheet(wb);
-    if(!found) return [];
-    const {rows, headerRowIdx} = found;
-    const header = rows[headerRowIdx].map(v => (v===null||v===undefined) ? '' : String(v).trim());
-    const idx = {};
-    INFOVIEW_HEADERS.forEach(h => { idx[h] = header.indexOf(h); });
-    if(Object.values(idx).some(v => v === -1)) return [];
-
-    const out = [];
-    for(let r = headerRowIdx+1; r < rows.length; r++){
-      const row = rows[r];
-      if(!row || row.every(v => v===null || v==='' || v===undefined)) continue;
-      const msisdn = row[idx['MSISDN']] ?? '';
-      const comp = row[idx['COMPANY_NAME']] ?? '';
-      if(comp === '' && (msisdn === null || msisdn === '')) continue;
-
-      let expiry = row[idx['CONTRACT_END_DATE']];
-      if(expiry && !(expiry instanceof Date)) expiry = excelSerialToDate(expiry);
-
-      const commitment = toNumber(row[idx['COMMITMENT_FEE']]);
-      const calc = computeDerived(expiry, commitment);
-
-      const bss = row[idx['BSS_ID']] ? String(row[idx['BSS_ID']]).trim().toUpperCase() : '';
-      const status = row[idx['STATUS']] ? String(row[idx['STATUS']]).trim().toUpperCase() : null;
-
-      const rec = {
-        source: bss || 'INFOVIEW',
-        status: status,
-        no: 0,
-        comp: comp || '',
-        cug: comp || '',
-        acct: row[idx['BILLING_ACCOUNT_NUMBER']] ?? '',
-        msisdn: msisdn,
-        product: row[idx['PRODUCT_NAME']] ?? '',
-        category: row[idx['LOB_NEW']] ?? '',
-        expiry: expiry,
-        fee: commitment,
-        occ: null,
-        final: commitment,
-        remaining: calc.remainingMonths,
-        penalty: calc.penalty,
-        renewal: calc.renewalType
-      };
-      rec.search = [rec.comp, rec.cug, rec.acct, rec.msisdn, rec.product, rec.category]
-        .map(v => String(v ?? '')).join(' ').toLowerCase();
-      out.push(rec);
-    }
-    return out;
-  }
-
-  function normMsisdn(v){
-    const digits = String(v ?? '').replace(/\D/g,'');
-    return digits.slice(-9);
-  }
-
-  function parseXC(wb){
-    const map = new Map();
-    const name = wb.SheetNames.find(n => n.toLowerCase() === 'xc');
-    if(!name) return map;
-    const ws = wb.Sheets[name];
-    const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
-    if(!rows.length) return map;
-    const header = rows[0].map(v => (v===null||v===undefined) ? '' : String(v).trim());
-    const msisdnIdx = header.indexOf('MSISDN');
-    const statusIdx = header.indexOf('STATUS');
-    if(msisdnIdx === -1 || statusIdx === -1) return map;
-    for(let r=1; r<rows.length; r++){
-      const row = rows[r];
-      if(!row) continue;
-      const key = normMsisdn(row[msisdnIdx]);
-      if(!key) continue;
-      map.set(key, row[statusIdx] ? String(row[statusIdx]).trim().toUpperCase() : '');
-    }
-    return map;
-  }
-
-  function toNumber(v){
-    if(v === null || v === undefined || v === '') return null;
-    const n = Number(v);
-    return isNaN(n) ? null : n;
-  }
-
-  function excelSerialToDate(v){
-    if(typeof v !== 'number') return null;
-    const utc = XLSX.SSF ? null : null;
-    const epoch = new Date(Date.UTC(1899,11,30));
-    return new Date(epoch.getTime() + v*86400000);
-  }
-
-  function dayOnly(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-
-  function datedifM(start, end){
-    let months = (end.getFullYear()-start.getFullYear())*12 + (end.getMonth()-start.getMonth());
-    if(end.getDate() < start.getDate()) months -= 1;
-    return months;
-  }
-
-  function edate(date, n){
-    const target = new Date(date.getFullYear(), date.getMonth()+n, 1);
-    const lastDay = new Date(target.getFullYear(), target.getMonth()+1, 0).getDate();
-    const day = Math.min(date.getDate(), lastDay);
-    return new Date(target.getFullYear(), target.getMonth(), day);
-  }
-
-  function computeDerived(expiry, commitment){
-    const today = dayOnly(new Date());
-    if(!expiry || isNaN(expiry.getTime())){
-      return {remainingMonths:'No contract', penalty:null, renewalType:'No contract'};
-    }
-    const exp = dayOnly(expiry);
-    if(exp < today){
-      return {remainingMonths:'No contract', penalty:null, renewalType:'No contract'};
-    }
-    const dm = datedifM(today, exp);
-    const remainingMonths = dm + (exp.getDate() >= today.getDate() ? 1 : 0);
-    const penalty = (typeof commitment === 'number') ? (commitment*remainingMonths + 100) : null;
-    let renewalType;
-    if(exp <= edate(today,2)) renewalType = 'P1';
-    else if(exp <= edate(today,6)) renewalType = 'P2';
-    else if(exp <= edate(today,9)) renewalType = 'P3';
-    else renewalType = 'P4';
-    return {remainingMonths, penalty, renewalType};
-  }
-
-  function urgencyRank(renewal){
-    if(renewal === 'No contract') return 0;
-    if(renewal === 'P1') return 1;
-    if(renewal === 'P2') return 2;
-    if(renewal === 'P3') return 3;
-    if(renewal === 'P4') return 4;
-    return 5;
-  }
-
-  function launchApp(fileName){
-    uploadStage.style.display = 'none';
-    appStage.style.display = 'block';
-    topActions.style.display = 'flex';
-    const withStatus = allRows.filter(r => r.status).length;
-    topSub.textContent = fileName + ' — ' + allRows.length.toLocaleString() + ' lines loaded' +
-      (withStatus ? ' · ' + withStatus.toLocaleString() + ' with status data' : '');
-    populateCategoryOptions();
-    updateActiveOnlyAvailability();
-    buildSummary();
-    render();
-  }
-
-  function populateCategoryOptions(){
-    const seen = new Map(); // lowercase key -> display label (first-seen casing)
-    allRows.forEach(r => {
-      const raw = String(r.category ?? '').trim();
-      if(!raw) return;
-      const key = raw.toLowerCase();
-      if(!seen.has(key)) seen.set(key, raw);
-    });
-    const cats = Array.from(seen.entries()).sort((a,b) => a[1].localeCompare(b[1]));
-    categorySelect.innerHTML = '<option value="all">All sources</option>' +
-      cats.map(([key,label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`).join('');
-  }
-
-  function updateActiveOnlyAvailability(){
-    const has = allRows.some(r => r.status);
-    activeOnlyChk.disabled = !has;
-    activeOnlyWrap.classList.toggle('disabled', !has);
-    activeOnlyWrap.title = has ? '' : 'No status data found in this file (needs an xC tab, or a STATUS column)';
-    if(!has) activeOnlyChk.checked = false;
-  }
-
-  function buildSummary(){
-    const counts = {all: allRows.length, none:0, p1:0, p2:0, p3:0, p4:0};
-    allRows.forEach(r => {
-      if(r.renewal === 'No contract') counts.none++;
-      else if(r.renewal === 'P1') counts.p1++;
-      else if(r.renewal === 'P2') counts.p2++;
-      else if(r.renewal === 'P3') counts.p3++;
-      else if(r.renewal === 'P4') counts.p4++;
-    });
-    const defs = [
-      {key:'all', cls:'c-all', label:'All lines', num:counts.all},
-      {key:'No contract', cls:'c-none', label:'No contract', num:counts.none},
-      {key:'P1', cls:'c-p1', label:'P1 · ≤2 mths', num:counts.p1},
-      {key:'P2', cls:'c-p2', label:'P2 · ≤6 mths', num:counts.p2},
-      {key:'P3', cls:'c-p3', label:'P3 · ≤9 mths', num:counts.p3},
-      {key:'P4', cls:'c-p4', label:'P4 · 9+ mths', num:counts.p4},
-    ];
-    const wrapEl = document.getElementById('summaryCards');
-    wrapEl.innerHTML = defs.map(d => `
-      <div class="card ${d.cls} ${activeFilter===d.key ? 'active':''}" data-filter="${escapeHtml(d.key)}">
-        <div class="num">${d.num.toLocaleString()}</div>
-        <div class="lbl">${d.label}</div>
-      </div>`).join('');
-    wrapEl.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => {
-      activeFilter = c.getAttribute('data-filter');
-      renewalSelect.value = activeFilter;
-      buildSummary();
-      render();
-    }));
-  }
-
-  function matchesFilter(r){
-    if(activeFilter !== 'all' && r.renewal !== activeFilter) return false;
-    if(categorySelect.value !== 'all' && String(r.category ?? '').trim().toLowerCase() !== categorySelect.value) return false;
-    if(activeOnlyChk.checked && !activeOnlyChk.disabled){
-      if(r.status !== 'ACTIVE') return false;
-    }
-    if(urgentOnlyChk.checked){
-      if(!['No contract','P1','P2'].includes(r.renewal)) return false;
-    }
-    return true;
-  }
-
-  function getFiltered(){
-    const q = searchInput.value.trim().toLowerCase();
-    let rows = allRows.filter(matchesFilter);
-    if(q) rows = rows.filter(r => r.search.includes(q));
-    rows = rows.slice().sort((a,b) => {
-      let cmp = 0;
-      if(sortKey === 'urgency'){
-        cmp = urgencyRank(a.renewal) - urgencyRank(b.renewal);
-        if(cmp === 0){
-          const am = typeof a.remaining === 'number' ? a.remaining : 9999;
-          const bm = typeof b.remaining === 'number' ? b.remaining : 9999;
-          cmp = am - bm;
-        }
-      } else {
-        let av = a[sortKey], bv = b[sortKey];
-        if(av instanceof Date) av = av.getTime(); if(bv instanceof Date) bv = bv.getTime();
-        if(av === null || av === undefined) av = '';
-        if(bv === null || bv === undefined) bv = '';
-        if(typeof av === 'string') av = av.toLowerCase();
-        if(typeof bv === 'string') bv = bv.toLowerCase();
-        cmp = av > bv ? 1 : av < bv ? -1 : 0;
-      }
-      return cmp * sortDir;
-    });
-    return rows;
-  }
-
-  function fmtDate(d){
-    if(!d || isNaN(d.getTime())) return '';
-    const dd = String(d.getDate()).padStart(2,'0');
-    const mm = String(d.getMonth()+1).padStart(2,'0');
-    return `${dd}/${mm}/${d.getFullYear()}`;
-  }
-  function fmtMoney(n){
-    if(n === null || n === undefined || n === '' || isNaN(n)) return '';
-    return 'RM ' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
-  }
-  function tagClass(renewal){
-    if(renewal === 'No contract') return 'tag-none';
-    if(renewal === 'P1') return 'tag-p1';
-    if(renewal === 'P2') return 'tag-p2';
-    if(renewal === 'P3') return 'tag-p3';
-    if(renewal === 'P4') return 'tag-p4';
-    return 'tag-blank';
-  }
-
-  function render(){
-    const rows = getFiltered();
-    resultCount.textContent = rows.length.toLocaleString() + ' of ' + allRows.length.toLocaleString() + ' lines';
-    if(topLineCount){
-      topLineCount.innerHTML = (rows.length === allRows.length)
-        ? `<span class="n">${rows.length.toLocaleString()}</span> lines`
-        : `<span class="n">${rows.length.toLocaleString()}</span> of ${allRows.length.toLocaleString()} lines`;
-    }
-    if(!rows.length){
-      tableBody.innerHTML = `<tr class="empty-row"><td colspan="15">No matching records. Try a different search or filter.</td></tr>`;
-      return;
-    }
-    tableBody.innerHTML = rows.map(r => `
-      <tr data-msisdn="${r.msisdn}">
-        <td class="mono">${escapeHtml(r.source)}</td>
-        <td>${r.no}</td>
-        <td>${escapeHtml(r.comp)}</td>
-        <td>${escapeHtml(r.cug)}</td>
-        <td class="mono">${escapeHtml(r.acct)}</td>
-        <td class="mono">${escapeHtml(r.msisdn)}</td>
-        <td>${escapeHtml(r.product)}</td>
-        <td>${escapeHtml(r.category)}</td>
-        <td>${fmtDate(r.expiry)}</td>
-        <td>${fmtMoney(r.fee)}</td>
-        <td>${fmtMoney(r.occ)}</td>
-        <td>${fmtMoney(r.final)}</td>
-        <td>${r.remaining ?? ''}</td>
-        <td>${fmtMoney(r.penalty)}</td>
-        <td><span class="tag ${tagClass(r.renewal)}">${r.renewal ?? '—'}</span></td>
-      </tr>
-    `).join('');
-    tableBody.querySelectorAll('tr[data-msisdn]').forEach(tr => {
-      tr.addEventListener('click', () => openDetail(tr.getAttribute('data-msisdn')));
-    });
-  }
-
-  function escapeHtml(v){
-    return String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-  }
-
-  function openDetail(msisdn){
-    const r = allRows.find(x => String(x.msisdn) === String(msisdn));
-    if(!r) return;
-    modalBody.innerHTML = `
-      <button class="close" id="closeModal">&times;</button>
-      <h3>${escapeHtml(r.comp) || 'Unnamed account'}</h3>
-      <div class="msub">${escapeHtml(r.cug)}</div>
-      <div class="row"><span>MSISDN</span><span class="mono">${escapeHtml(r.msisdn)}</span></div>
-      <div class="row"><span>Account Code</span><span class="mono">${escapeHtml(r.acct)}</span></div>
-      <div class="row"><span>Product / Plan</span><span>${escapeHtml(r.product)}</span></div>
-      <div class="row"><span>Category</span><span>${escapeHtml(r.category)}</span></div>
-      <div class="row"><span>Expiry Date</span><span>${fmtDate(r.expiry) || '—'}</span></div>
-      <div class="row"><span>Monthly Fee</span><span>${fmtMoney(r.fee) || '—'}</span></div>
-      <div class="row"><span>OCC</span><span>${fmtMoney(r.occ) || '—'}</span></div>
-      <div class="row"><span>Final Price</span><span>${fmtMoney(r.final) || '—'}</span></div>
-      <div class="row"><span>Remaining Months</span><span>${r.remaining ?? '—'}</span></div>
-      <div class="row"><span>Penalty Fee</span><span>${fmtMoney(r.penalty) || '—'}</span></div>
-      <div class="row"><span>Renewal Type</span><span><span class="tag ${tagClass(r.renewal)}">${r.renewal ?? '—'}</span></span></div>
-    `;
-    overlay.style.display = 'flex';
-    document.getElementById('closeModal').addEventListener('click', () => overlay.style.display = 'none');
-  }
-  overlay.addEventListener('click', e => { if(e.target === overlay) overlay.style.display = 'none'; });
-
-  searchInput.addEventListener('input', render);
-  renewalSelect.addEventListener('change', () => { activeFilter = renewalSelect.value; buildSummary(); render(); });
-  categorySelect.addEventListener('change', render);
-  activeOnlyChk.addEventListener('change', render);
-  urgentOnlyChk.addEventListener('change', render);
-  clearFiltersBtn.addEventListener('click', () => {
-    searchInput.value = '';
-    renewalSelect.value = 'all';
-    categorySelect.value = 'all';
-    urgentOnlyChk.checked = false;
-    activeOnlyChk.checked = false;
-    activeFilter = 'all';
-    buildSummary();
-    render();
-  });
-  msisdnInput.addEventListener('keydown', e => { if(e.key === 'Enter') jumpToMsisdn(); });
-  document.getElementById('msisdnGo').addEventListener('click', jumpToMsisdn);
-  function jumpToMsisdn(){
-    const v = msisdnInput.value.trim();
-    if(!v) return;
-    const found = allRows.find(r => String(r.msisdn).includes(v));
-    if(found){ openDetail(found.msisdn); }
-    else{ alert('No line found matching that MSISDN.'); }
-  }
-
-  document.querySelectorAll('#dataTable thead th').forEach(th => {
-    th.addEventListener('click', () => {
-      const key = th.getAttribute('data-key');
-      const map = {source:'source',no:'no',comp:'comp',cug:'cug',acct:'acct',msisdn:'msisdn',product:'product',category:'category',
-                   expiry:'expiry',fee:'fee',occ:'occ',final:'final',remaining:'remaining',penalty:'penalty',renewal:'urgency'};
-      const k = map[key] || key;
-      if(sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = 1; }
-      render();
-    });
-  });
-
-  const EXPORT_HEADERS = ['Source','No','Company','CUG Name','Account Code','MSISDN','Product/Plan','Category','Expiry Date','Mthly Fee','OCC','Final Price','Remaining Months','Penalty Fee','Renewal Type'];
-
-  function rowToArray(r){
-    return [r.source, r.no, r.comp, r.cug, r.acct, r.msisdn, r.product, r.category, fmtDate(r.expiry),
-            r.fee ?? '', r.occ ?? '', r.final ?? '', r.remaining ?? '', r.penalty ?? '', r.renewal ?? ''];
-  }
-
-  function exportCSV(){
-    const rows = getFiltered();
-    const lines = [EXPORT_HEADERS.join(',')];
-    rows.forEach(r => {
-      lines.push(rowToArray(r).map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(','));
-    });
-    const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'renewal-search-export.csv';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function exportXLSX(){
-    const rows = getFiltered();
-    const aoa = [EXPORT_HEADERS].concat(rows.map(rowToArray));
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = EXPORT_HEADERS.map(h => ({wch: Math.max(10, h.length + 2)}));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Renewal Search');
-    XLSX.writeFile(wb, 'renewal-search-export.xlsx');
-  }
-
-  function copyTable(){
-    const rows = getFiltered();
-    const lines = [EXPORT_HEADERS.join('\t')];
-    rows.forEach(r => lines.push(rowToArray(r).map(v => String(v ?? '')).join('\t')));
-    const text = lines.join('\n');
-    const finish = (ok) => showToast(ok ? `Copied ${rows.length.toLocaleString()} rows` : 'Could not copy — try Export instead');
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(text).then(() => finish(true)).catch(() => finish(false));
-    } else {
-      try{
-        const ta = document.createElement('textarea');
-        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta); ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        finish(true);
-      }catch(e){ finish(false); }
-    }
-  }
-
-  let toastTimer = null;
-  function showToast(msg){
-    let t = document.getElementById('toast');
-    if(!t){
-      t = document.createElement('div');
-      t.id = 'toast';
-      t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(18,33,59,.25);z-index:100;opacity:0;transition:opacity .2s ease;';
-      document.body.appendChild(t);
-    }
-    t.textContent = msg;
-    requestAnimationFrame(() => { t.style.opacity = '1'; });
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2200);
-  }
-})();
+const COLS=[
+ ['Source','source'],['No','no'],['COMPANY_NAME','company'],['CUSTOMER_NAME','customerName'],['BRN_NRIC','brn'],['CORP_CODE / CUG','corpCode'],['Billing Account','account'],['Parent Billing Account','parentAccount'],['MSISDN','msisdn'],['Product / Plan','plan'],['LOB / Category','category'],['Bill Plan Value','billPlanValue'],['Contract Flag','contractFlag'],['Device Bundle Flag','deviceBundleFlag'],['Service Contract Flag','serviceContractFlag'],['Contract Name','contractName'],['Contract Start','contractStart'],['Contract End','expiry'],['Commitment Fee','monthly'],['Rebate','rebate'],['Final Price','finalPrice'],['Remaining Months','remaining'],['Calculated Penalty','penalty'],['Source Contract Penalty','sourcePenalty'],['Renewal Type','renewalType'],['Status','status'],['Sales Code','salesCode'],['AM/CM','amcm'],['BSS_ID','bssId']
+];
+let allRows=[], filteredRows=[];
+const $=id=>document.getElementById(id), esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function key(s){return String(s??'').trim().toLowerCase().replace(/[\s_\-\/]+/g,'')}
+function indexMap(headers){const m={}; headers.forEach((h,i)=>m[key(h)]=i); return m}
+function get(row,map,...names){for(const n of names){const i=map[key(n)]; if(i!==undefined && row[i]!==undefined && row[i]!==null && row[i]!=='')return row[i]} return ''}
+function num(v){if(v===''||v==null)return 0; const n=Number(String(v).replace(/,/g,'')); return Number.isFinite(n)?n:0}
+function excelDate(v){
+ if(v instanceof Date && !isNaN(v))return new Date(v.getFullYear(),v.getMonth(),v.getDate());
+ if(typeof v==='number' && Number.isFinite(v)){const d=XLSX.SSF.parse_date_code(v); if(d)return new Date(d.y,d.m-1,d.d)}
+ if(typeof v==='string' && v.trim()){
+   const s=v.trim(); let m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/); if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+   const d=new Date(s); if(!isNaN(d))return new Date(d.getFullYear(),d.getMonth(),d.getDate());
+ }
+ return null;
+}
+function formatDate(d){return d?`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`:''}
+function addMonthsEDATE(date,months){const y=date.getFullYear(),m=date.getMonth()+months,day=date.getDate(); const last=new Date(y,m+1,0).getDate(); return new Date(y,m,Math.min(day,last));}
+function remainingMonths(exp,today=new Date()){
+ if(!exp)return '';
+ const t=new Date(today.getFullYear(),today.getMonth(),today.getDate());
+ if(exp<t)return 0;
+ let months=(exp.getFullYear()-t.getFullYear())*12+(exp.getMonth()-t.getMonth());
+ if(exp.getDate()>=t.getDate())months+=1;
+ return Math.max(1,months);
+}
+function renewalType(exp,today=new Date()){
+ if(!exp)return '';
+ const t=new Date(today.getFullYear(),today.getMonth(),today.getDate()); if(exp<t)return 'No contract';
+ if(exp<=addMonthsEDATE(t,3))return 'P1'; if(exp<=addMonthsEDATE(t,6))return 'P2'; if(exp<=addMonthsEDATE(t,9))return 'P3'; return 'P4';
+}
+function categoryXC(plan){const p=String(plan).toLowerCase(); if(p.includes('fibre')||p.includes('fiber'))return 'FTTO'; if(p.includes('wireless')||p.includes('home wifi'))return 'FWA'; if(p.includes('m2m')||p.includes('iot'))return 'M2M'; return 'voice'}
+function normalizeMsisdn(v){let s=String(v??'').trim(); if(/^\d+(\.0)?$/.test(s))s=s.replace(/\.0$/,''); if(s.startsWith('60')&&/^60\d+$/.test(s))s='0'+s.slice(2); return s}
+function bssSource(v){const raw=String(v??'').trim(), s=raw.toLowerCase(); if(s.includes('celcom')||s==='xc'||s.includes('x_c'))return 'xC'; if(s.includes('digi')||s==='xd'||s.includes('x_d'))return 'xD'; return raw||'Renewal';}
+function calcRow(base){
+ const exp=excelDate(base.expiryRaw), start=excelDate(base.contractStartRaw), rem=remainingMonths(exp), rt=renewalType(exp);
+ const monthly=num(base.monthly), rebate=num(base.rebate), occ=num(base.occ), finalPrice=base.finalPrice===''||base.finalPrice==null?monthly-rebate+occ:num(base.finalPrice);
+ return {...base,contractStart:formatDate(start),expiryDate:exp,expiry:formatDate(exp),monthly,rebate,occ,finalPrice,remaining:rem,penalty:(rt==='No contract'||rem===''?0:monthly*rem+100),renewalType:rt};
+}
+function parseXD(ws){const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}); if(rows.length<2)return[]; const map=indexMap(rows[0]); return rows.slice(1).filter(r=>r.some(v=>v!=='')).map((r,i)=>calcRow({source:'xD',no:i+1,company:get(r,map,'CMPNY_NM'),brn:get(r,map,'BRN_NRIC','BRN'),corpCode:get(r,map,'CUG_NM'),account:String(get(r,map,'ACCT_NUM')),parentAccount:'',msisdn:normalizeMsisdn(get(r,map,'SUBS_MSISDN')),plan:get(r,map,'SUBS_PRMRY_OFRNG'),category:get(r,map,'category'),contractName:'',contractStartRaw:'',expiryRaw:get(r,map,'EST_EXPIRY_DATE','UPD_EXPIRY_DATE','UPD_EXPIRY_DATE5'),monthly:get(r,map,'commitment'),rebate:0,occ:get(r,map,'occ'),finalPrice:get(r,map,'net_cv'),status:get(r,map,'SUBS_STAT'),salesCode:get(r,map,'SALES_CODE'),amcm:'',bssId:'Digi / xD'}));}
+function parseXC(ws){const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}); if(rows.length<2)return[]; const map=indexMap(rows[0]); return rows.slice(1).filter(r=>r.some(v=>v!=='')).map((r,i)=>{const plan=get(r,map,'PRODUCT_NAME'),commit=num(get(r,map,'COMMITMENT_FEE')),rebate=num(get(r,map,'REBATE_AMOUNT')); return calcRow({source:'xC',no:i+1,company:get(r,map,'COMPANY_NAME','CUSTOMER_NAME','ACCOUNT_NAME'),brn:get(r,map,'BRN_NRIC'),corpCode:get(r,map,'CORP_CODE','ACCOUNT_NAME'),account:String(get(r,map,'BILLING_ACCOUNT_NUMBER')),parentAccount:String(get(r,map,'PARENT_BILLING_ACCOUNT_NUMBER')),msisdn:normalizeMsisdn(get(r,map,'MSISDN')),plan,category:get(r,map,'LOB_NEW')||categoryXC(plan),contractName:get(r,map,'CONTRACT_NAME'),contractStartRaw:get(r,map,'CONTRACT_START_DATE'),expiryRaw:get(r,map,'CONTRACT_END_DATE'),monthly:commit,rebate,occ:0,finalPrice:commit-rebate,status:get(r,map,'STATUS'),salesCode:get(r,map,'SALES_CODE'),amcm:get(r,map,'AM_CM'),bssId:get(r,map,'BSS_ID')||'Celcom / xC'})});}
+const RENEWAL_REQUIRED=['BILLING_ACCOUNT_NUMBER','MSISDN','PRODUCT_NAME','STATUS','CONTRACT_END_DATE','COMMITMENT_FEE','COMPANY_NAME','BSS_ID'];
+function looksLikeRenewal(ws){const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}); if(!rows.length)return false; const m=indexMap(rows[0]); return RENEWAL_REQUIRED.every(h=>m[key(h)]!==undefined);}
+function parseRenewal(ws){
+ const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}); if(rows.length<2)return[]; const map=indexMap(rows[0]);
+ return rows.slice(1).filter(r=>r.some(v=>v!=='')).map((r,i)=>{
+   const bss=get(r,map,'BSS_ID'), commit=num(get(r,map,'COMMITMENT_FEE')), rebate=num(get(r,map,'REBATE_AMOUNT'));
+   return calcRow({source:bssSource(bss),no:i+1,company:get(r,map,'COMPANY_NAME'),customerName:get(r,map,'CUSTOMER_NAME'),brn:get(r,map,'BRN_NRIC'),corpCode:get(r,map,'CORP_CODE'),account:String(get(r,map,'BILLING_ACCOUNT_NUMBER')),parentAccount:String(get(r,map,'PARENT_BILLING_ACCOUNT_NUMBER')),msisdn:normalizeMsisdn(get(r,map,'MSISDN')),plan:get(r,map,'PRODUCT_NAME'),category:get(r,map,'LOB_NEW'),billPlanValue:get(r,map,'BILL_PLAN_VALUE'),contractFlag:get(r,map,'CONTRACT_FLAG'),deviceBundleFlag:get(r,map,'DEVICE_BUNDLE_FLAG'),serviceContractFlag:get(r,map,'SERVICE_CONTRACT_FLAG'),contractName:get(r,map,'CONTRACT_NAME'),contractStartRaw:get(r,map,'CONTRACT_START_DATE'),expiryRaw:get(r,map,'CONTRACT_END_DATE'),monthly:commit,rebate,occ:0,finalPrice:commit-rebate,sourcePenalty:num(get(r,map,'CONTRACT_PENALTY_AMOUNT')),status:get(r,map,'STATUS'),salesCode:get(r,map,'SALES_CODE'),amcm:get(r,map,'AM_CM'),bssId:bss});
+ });
+}
+function render(){
+ const q=$('search').value.trim().toLowerCase(), rt=$('renewal').value, src=$('source').value, active=$('activeOnly').checked, renewable=$('renewableOnly').checked;
+ filteredRows=allRows.filter(r=>{
+   const hay=COLS.map(([,k])=>r[k]??'').join(' ').toLowerCase();
+   return (!q||hay.includes(q))&&(!rt||r.renewalType===rt)&&(!src||r.source===src)&&(!active||String(r.status).toUpperCase()==='ACTIVE')&&(!renewable||['No contract','P1','P2'].includes(r.renewalType));
+ });
+ $('resultCount').textContent=filteredRows.length.toLocaleString();
+ $('thead').innerHTML='<tr>'+COLS.map(c=>`<th>${esc(c[0])}</th>`).join('')+'</tr>';
+ const show=filteredRows.slice(0,5000);
+ $('tbody').innerHTML=show.length?show.map(r=>'<tr>'+COLS.map(([label,k])=>{
+   let v=r[k]; if(['monthly','rebate','finalPrice','penalty','sourcePenalty'].includes(k))v=Number(v||0).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+   if(k==='renewalType')v=`<span class="tag ${r.renewalType==='No contract'?'p0':String(r.renewalType).toLowerCase()}">${esc(r.renewalType)}</span>`; else v=esc(v);
+   return `<td class="${['monthly','rebate','finalPrice','remaining','penalty','sourcePenalty'].includes(k)?'num':''}">${v}</td>`;
+ }).join('')+'</tr>').join(''):`<tr><td colspan="${COLS.length}" class="empty">No matching data.</td></tr>`;
+ if(filteredRows.length>5000)$('notice').style.display='block',$('notice').textContent='Showing the first 5,000 matching rows on screen. Export includes all results.';
+ else $('notice').style.display='none';
+ const enabled=filteredRows.length>0; ['exportXlsx','exportCsv','copy'].forEach(id=>$(id).disabled=!enabled);
+}
+async function loadFile(file){
+ $('status').textContent=`Reading ${file.name}...`; try{
+   if(typeof XLSX==='undefined')throw new Error('Excel reader library could not load. Please connect to the internet and reopen this page.');
+   const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+   let xc=[],xd=[],renewalRows=[],mode='';
+   if(wb.Sheets['xC']||wb.Sheets['xD']){
+     xc=wb.Sheets['xC']?parseXC(wb.Sheets['xC']):[]; xd=wb.Sheets['xD']?parseXD(wb.Sheets['xD']):[]; mode='xC/xD workbook';
+   } else {
+     const match=wb.SheetNames.find(n=>looksLikeRenewal(wb.Sheets[n]));
+     if(match){renewalRows=parseRenewal(wb.Sheets[match]); mode=`Renewal Search (${match})`;}
+   }
+   if(!xc.length&&!xd.length&&!renewalRows.length)throw new Error('No supported data found. Use either xC/xD sheet tabs or a Renewal Search file containing BILLING_ACCOUNT_NUMBER, MSISDN, PRODUCT_NAME, STATUS, CONTRACT_END_DATE, COMMITMENT_FEE, COMPANY_NAME and BSS_ID.');
+   allRows=[...xd,...xc,...renewalRows];
+   const xcTotal=allRows.filter(r=>r.source==='xC').length, xdTotal=allRows.filter(r=>r.source==='xD').length;
+   $('xcCount').textContent=xcTotal.toLocaleString(); $('xdCount').textContent=xdTotal.toLocaleString(); $('renewalCount').textContent=renewalRows.length.toLocaleString(); $('totalCount').textContent=allRows.length.toLocaleString();
+   $('status').textContent=`Loaded ${file.name} as ${mode}. Calculations use today's date: ${formatDate(new Date())}.`;
+   render();
+ }catch(e){allRows=[];$('xcCount').textContent='0';$('xdCount').textContent='0';$('renewalCount').textContent='0';$('totalCount').textContent='0';render();$('status').textContent='Error: '+e.message;}
+}
+function exportRows(type){const data=filteredRows.map(r=>Object.fromEntries(COLS.map(([label,k])=>[label,k==='expiry'?r.expiry:(['monthly','rebate','finalPrice','penalty','sourcePenalty','remaining'].includes(k)?r[k]:r[k])]))); const ws=XLSX.utils.json_to_sheet(data); ws['!cols']=COLS.map(([l])=>({wch:Math.min(35,Math.max(12,l.length+2))})); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Search Results'); if(type==='xlsx')XLSX.writeFile(wb,'CY_xC_xD_Search_Results.xlsx'); else XLSX.writeFile(wb,'CY_xC_xD_Search_Results.csv',{bookType:'csv'});}
+$('dropZone').onclick=()=>$('fileInput').click(); $('fileInput').onchange=e=>e.target.files[0]&&loadFile(e.target.files[0]);
+['dragenter','dragover'].forEach(ev=>$('dropZone').addEventListener(ev,e=>{e.preventDefault();$('dropZone').classList.add('drag')})); ['dragleave','drop'].forEach(ev=>$('dropZone').addEventListener(ev,e=>{e.preventDefault();$('dropZone').classList.remove('drag')})); $('dropZone').addEventListener('drop',e=>e.dataTransfer.files[0]&&loadFile(e.dataTransfer.files[0]));
+['search','renewal','source','activeOnly','renewableOnly'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
+$('clear').onclick=()=>{$('search').value='';$('renewal').value='';$('source').value='';$('activeOnly').checked=false;$('renewableOnly').checked=false;render()};
+$('exportXlsx').onclick=()=>exportRows('xlsx'); $('exportCsv').onclick=()=>exportRows('csv'); $('copy').onclick=async()=>{const lines=[COLS.map(c=>c[0]).join('\t'),...filteredRows.map(r=>COLS.map(c=>r[c[1]]??'').join('\t'))]; await navigator.clipboard.writeText(lines.join('\n')); $('copy').textContent='Copied';setTimeout(()=>$('copy').textContent='Copy Table',1200)};
+render();
 </script>
 </body>
 </html>
