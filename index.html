@@ -192,9 +192,13 @@
   .view-tab{background:#e6edf7;color:#233b60;border:1px solid var(--line)}
   .view-tab.selected{background:var(--accent);color:#fff;border-color:var(--accent)}
   .view-panel[hidden]{display:none!important}
-  .dashboard-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
-  .dash-metric{background:#fff;border:1px solid var(--line);border-radius:12px;padding:17px;min-width:0}
-  .dash-metric .value{font-size:23px;font-weight:800;overflow-wrap:anywhere;margin-top:8px}
+  .dash-plan-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:18px 0 22px}
+  .dash-plan-item{padding:9px 0;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:start;justify-content:space-between;font-size:13px;line-height:1.45}
+  .dash-plan-item:last-child{border-bottom:0}
+  .dash-plan-item strong{white-space:nowrap;color:var(--accent);font-variant-numeric:tabular-nums}
+  .dashboard-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
+  .dash-metric{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;min-width:0;min-height:112px;box-shadow:0 2px 8px rgba(18,33,59,.025)}
+  .dash-metric .value{font-size:25px;font-weight:800;overflow-wrap:anywhere;margin-top:8px}
   .dash-metric .name{font-size:12px;color:var(--ink-soft);font-weight:600}
   .dash-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
   .dash-panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;min-width:0}
@@ -205,7 +209,12 @@
   .dash-fill{height:100%;background:var(--accent);border-radius:8px}
   .dash-bar-count{text-align:right;font-weight:700}
   .dash-note{font-size:12px;color:var(--ink-soft);margin-top:15px;line-height:1.6}
-  @media(max-width:850px){.dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-layout{grid-template-columns:1fr}}
+  #dashboardView{width:100%;min-width:0}
+  .dash-plan-grid .dash-panel{min-width:0;padding:19px}
+  .dash-plan-grid .dash-panel h3{margin-bottom:13px}
+  .dash-plan-item span{min-width:0;overflow-wrap:anywhere}
+  @media(min-width:1100px){.dashboard-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  @media(max-width:850px){.dash-plan-grid{grid-template-columns:1fr}.dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-layout{grid-template-columns:1fr}}
   .renewal-multi{position:relative;min-width:180px}
   .renewal-multi-btn{width:100%;min-height:39px;background:var(--bg);color:var(--ink);border:1px solid var(--line);text-align:left;font-weight:500;white-space:normal}
   .renewal-multi-menu{position:absolute;top:calc(100% + 5px);left:0;min-width:220px;z-index:30;background:white;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 25px #12213b22;padding:8px;max-height:280px;overflow:auto}
@@ -345,6 +354,11 @@
         <p style="margin:10px 0 0;color:var(--ink-soft);font-size:13px">Select Renewal Type, Source, Company, Active only, or search in the Search Data tab. This dashboard shows exactly those matching lines.</p>
       </div>
       <div id="dashMetrics" class="dashboard-grid"></div>
+      <div class="dash-plan-grid">
+        <div class="dash-panel"><h3>No Contract — Plans × Lines</h3><div id="dashNoContractPlans"></div></div>
+        <div class="dash-panel"><h3>P1 — Plans × Lines</h3><div id="dashP1Plans"></div></div>
+        <div class="dash-panel"><h3>Total Selected — Plans × Lines</h3><div id="dashAllPlans"></div></div>
+      </div>
       <div class="dash-layout">
         <div class="dash-panel"><h3>Renewal Type Breakdown</h3><div id="dashRenewalBars"></div></div>
         <div class="dash-panel"><h3>Source Breakdown</h3><div id="dashSourceBars"></div></div>
@@ -698,7 +712,6 @@
   }
 
   function launchApp(fileName){
-    updateDashboardSources();
     setView('search');
     uploadStage.style.display = 'none';
     appStage.style.display = 'block';
@@ -1023,6 +1036,15 @@
     const money=n=>'RM '+n.toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
     const metrics=[['Total Lines',rows.length.toLocaleString()],['Companies',companyCount.toLocaleString()],['Monthly Commitment',money(sum('fee'))],['Estimated Penalty',money(sum('penalty'))],['No Contract',noContract.toLocaleString()],['No Contract + P1',noContractP1.toLocaleString()],['Active Lines',rows.filter(r=>r.status==='ACTIVE').length.toLocaleString()],['Contracted Lines',(rows.length-noContract).toLocaleString()]];
     document.getElementById('dashMetrics').innerHTML=metrics.map(([name,value])=>'<div class="dash-metric"><div class="name">'+escapeHtml(name)+'</div><div class="value">'+escapeHtml(value)+'</div></div>').join('');
+    function renderPlanCounts(id,subset){
+      const groups=dashboardGroups(subset,r=>String(r.product||'').trim()||'Plan not specified');
+      document.getElementById(id).innerHTML=groups.length
+        ?groups.map(g=>'<div class="dash-plan-item"><span>'+escapeHtml(g.label)+'</span><strong>× '+g.count.toLocaleString()+' lines</strong></div>').join('')
+        :'<div class="dash-note">No matching lines</div>';
+    }
+    renderPlanCounts('dashNoContractPlans',rows.filter(r=>r.renewal==='No contract'));
+    renderPlanCounts('dashP1Plans',rows.filter(r=>r.renewal==='P1'));
+    renderPlanCounts('dashAllPlans',rows);
     document.getElementById('dashCount').textContent=rows.length.toLocaleString()+' of '+allRows.length.toLocaleString()+' lines';
     const renew=dashboardGroups(rows,r=>r.renewal);
     dashboardBars('dashRenewalBars',['No contract','P1','P2','P3','P4'].map(label=>({label,count:(renew.find(x=>x.label===label)||{count:0}).count})));
