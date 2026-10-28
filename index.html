@@ -206,6 +206,15 @@
   .dash-bar-count{text-align:right;font-weight:700}
   .dash-note{font-size:12px;color:var(--ink-soft);margin-top:15px;line-height:1.6}
   @media(max-width:850px){.dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-layout{grid-template-columns:1fr}}
+  .renewal-multi{position:relative;min-width:180px}
+  .renewal-multi-btn{width:100%;min-height:39px;background:var(--bg);color:var(--ink);border:1px solid var(--line);text-align:left;font-weight:500;white-space:normal}
+  .renewal-multi-menu{position:absolute;top:calc(100% + 5px);left:0;min-width:220px;z-index:30;background:white;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 25px #12213b22;padding:8px;max-height:280px;overflow:auto}
+  .renewal-multi-menu[hidden]{display:none}
+  .renewal-multi-menu label{display:flex;align-items:center;gap:9px;padding:9px 10px;font-size:13px;cursor:pointer;border-radius:6px}
+  .renewal-multi-menu label:hover{background:var(--accent-soft)}
+  .renewal-multi-menu input{accent-color:var(--accent)}
+  #companyMultiMenu{min-width:320px;max-width:min(480px,90vw)}
+  #companyMultiMenu .multi-item span{overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -267,27 +276,26 @@
           <input type="text" id="searchInput" placeholder="Search company, CUG, MSISDN, product, account code...">
         </div>
         <div class="f-field">
-          <label for="renewalSelect">Renewal Type</label>
-          <select id="renewalSelect">
-            <option value="all">All</option>
-            <option value="No contract">No Contract</option>
-            <option value="P1">P1</option>
-            <option value="P2">P2</option>
-            <option value="P3">P3</option>
-            <option value="P4">P4</option>
-          </select>
+          <label for="renewalMultiBtn">Renewal Type</label>
+          <div class="renewal-multi" id="renewalMulti">
+            <button type="button" class="renewal-multi-btn" id="renewalMultiBtn" aria-expanded="false">All renewal types ▾</button>
+            <div class="renewal-multi-menu" id="renewalMultiMenu" hidden>
+              <label><input type="checkbox" id="renewalAll" checked> <b>All</b></label>
+              <label><input type="checkbox" class="renewal-option" value="No contract"> No Contract</label>
+              <label><input type="checkbox" class="renewal-option" value="P1"> P1</label>
+              <label><input type="checkbox" class="renewal-option" value="P2"> P2</label>
+              <label><input type="checkbox" class="renewal-option" value="P3"> P3</label>
+              <label><input type="checkbox" class="renewal-option" value="P4"> P4</label>
+            </div>
+          </div>
         </div>
-        <div class="f-field">
-          <label for="categorySelect">Source / Category</label>
-          <select id="categorySelect">
-            <option value="all">All sources</option>
-          </select>
-        </div>
+        <div class="f-field"><label>Source</label><div class="renewal-multi" id="sourceMulti"><button type="button" class="renewal-multi-btn" id="sourceMultiBtn">All sources ▾</button><div class="renewal-multi-menu" id="sourceMultiMenu" hidden></div></div></div>
+        <div class="f-field"><label>Company</label><div class="renewal-multi" id="companyMulti"><button type="button" class="renewal-multi-btn" id="companyMultiBtn">All companies ▾</button><div class="renewal-multi-menu" id="companyMultiMenu" hidden></div></div></div>
         <button class="btn-line clear-btn" id="clearFiltersBtn">Clear Filters</button>
       </div>
       <div class="filter-checks">
         <label class="chk" id="activeOnlyWrap"><input type="checkbox" id="activeOnlyChk"> Active only</label>
-        <label class="chk"><input type="checkbox" id="urgentOnlyChk"> No Contract, P1 or P2 only</label>
+        <label class="chk"><input type="checkbox" id="urgentOnlyChk"> No Contract + P1 only</label>
         <div class="msisdn-inline">
           <input type="text" id="msisdnInput" placeholder="Jump to MSISDN">
           <button class="btn-line" id="msisdnGo">Go</button>
@@ -374,8 +382,22 @@
   const fileLabel = document.getElementById('fileLabel');
   const uploadError = document.getElementById('uploadError');
   const searchInput = document.getElementById('searchInput');
-  const renewalSelect = document.getElementById('renewalSelect');
-  const categorySelect = document.getElementById('categorySelect');
+  const renewalMultiBtn = document.getElementById('renewalMultiBtn');
+  const renewalMultiMenu = document.getElementById('renewalMultiMenu');
+  const renewalOptions = Array.from(document.querySelectorAll('.renewal-option'));
+  const renewalAll = document.getElementById('renewalAll');
+  let selectedRenewals = new Set();
+  function syncRenewalMulti(){
+    renewalAll.checked = selectedRenewals.size === 0;
+    renewalOptions.forEach(c => c.checked=selectedRenewals.has(c.value));
+    renewalMultiBtn.textContent = selectedRenewals.size ? [...selectedRenewals].join(', ')+' ▾' : 'All renewal types ▾';
+    renewalMultiBtn.setAttribute('aria-expanded',String(!renewalMultiMenu.hidden));
+  }
+  renewalMultiBtn.addEventListener('click',()=>{renewalMultiMenu.hidden=!renewalMultiMenu.hidden;syncRenewalMulti()});
+  document.addEventListener('click',e=>{if(!document.getElementById('renewalMulti').contains(e.target)){renewalMultiMenu.hidden=true;syncRenewalMulti()}});
+  renewalOptions.forEach(c=>c.addEventListener('change',()=>{if(c.checked)selectedRenewals.add(c.value);else selectedRenewals.delete(c.value);activeFilter='all';syncRenewalMulti();buildSummary();render()}));
+  renewalAll.addEventListener('change',()=>{selectedRenewals.clear();activeFilter='all';syncRenewalMulti();buildSummary();render()});
+  const selectedSources = new Set(), selectedCompanies = new Set();
   const activeOnlyChk = document.getElementById('activeOnlyChk');
   const activeOnlyWrap = document.getElementById('activeOnlyWrap');
   const urgentOnlyChk = document.getElementById('urgentOnlyChk');
@@ -693,16 +715,25 @@
   }
 
   function populateCategoryOptions(){
-    const seen = new Map(); // lowercase key -> display label (first-seen casing)
-    allRows.forEach(r => {
-      const raw = String(r.category ?? '').trim();
-      if(!raw) return;
-      const key = raw.toLowerCase();
-      if(!seen.has(key)) seen.set(key, raw);
-    });
-    const cats = Array.from(seen.entries()).sort((a,b) => a[1].localeCompare(b[1]));
-    categorySelect.innerHTML = '<option value="all">All sources</option>' +
-      cats.map(([key,label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`).join('');
+    selectedSources.clear();selectedCompanies.clear();
+    setupMulti('source', [...new Set(allRows.map(r=>String(r.source??'').trim()).filter(Boolean))].sort(),selectedSources,'sources');
+    setupMulti('company', [...new Set(allRows.map(r=>String(r.comp??'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)),selectedCompanies,'companies');
+  }
+  function setupMulti(prefix,values,selected,plural){
+    const menu=document.getElementById(prefix+'MultiMenu'),btn=document.getElementById(prefix+'MultiBtn');
+    menu.innerHTML='<label><input type="checkbox" class="multi-all" checked> <b>All</b></label>'+
+      (prefix==='company'?'<input class="multi-find" type="search" placeholder="Find company..." style="width:100%;padding:9px;border:1px solid #ddd;border-radius:6px;margin:5px 0">':'')+
+      values.map((v,i)=>'<label class="multi-item"><input type="checkbox" value="'+escapeHtml(v)+'"> <span>'+escapeHtml(v)+'</span></label>').join('');
+    const all=menu.querySelector('.multi-all'),options=[...menu.querySelectorAll('.multi-item input')];
+    function sync(){all.checked=selected.size===0;options.forEach(x=>x.checked=selected.has(x.value));btn.textContent=selected.size?selected.size+' '+plural+' selected ▾':'All '+plural+' ▾';}
+    all.addEventListener('change',()=>{selected.clear();sync();render();});
+    options.forEach(x=>x.addEventListener('change',()=>{if(x.checked)selected.add(x.value);else selected.delete(x.value);sync();render();}));
+    const finder=menu.querySelector('.multi-find');if(finder)finder.addEventListener('input',()=>{const q=finder.value.toLowerCase();menu.querySelectorAll('.multi-item').forEach(el=>el.hidden=!el.textContent.toLowerCase().includes(q));});
+    btn.onclick=()=>{const open=menu.hidden;document.querySelectorAll('.renewal-multi-menu').forEach(m=>m.hidden=true);menu.hidden=!open;};
+    menu.addEventListener('click',e=>e.stopPropagation());
+    window.addEventListener('click',e=>{if(!document.getElementById(prefix+'Multi').contains(e.target))menu.hidden=true;});
+    document.getElementById(prefix+'Multi').sync=sync;
+    sync();
   }
 
   function updateActiveOnlyAvailability(){
@@ -732,26 +763,28 @@
     ];
     const wrapEl = document.getElementById('summaryCards');
     wrapEl.innerHTML = defs.map(d => `
-      <div class="card ${d.cls} ${activeFilter===d.key ? 'active':''}" data-filter="${escapeHtml(d.key)}">
+      <div class="card ${d.cls} ${(d.key==='all' ? selectedRenewals.size===0 : selectedRenewals.size===1 && selectedRenewals.has(d.key)) ? 'active':''}" data-filter="${escapeHtml(d.key)}">
         <div class="num">${d.num.toLocaleString()}</div>
         <div class="lbl">${d.label}</div>
       </div>`).join('');
     wrapEl.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => {
       activeFilter = c.getAttribute('data-filter');
-      renewalSelect.value = activeFilter;
+      selectedRenewals = activeFilter==='all' ? new Set() : new Set([activeFilter]);
+      syncRenewalMulti();
       buildSummary();
       render();
     }));
   }
 
   function matchesFilter(r){
-    if(activeFilter !== 'all' && r.renewal !== activeFilter) return false;
-    if(categorySelect.value !== 'all' && String(r.category ?? '').trim().toLowerCase() !== categorySelect.value) return false;
+    if(selectedRenewals.size && !selectedRenewals.has(r.renewal)) return false;
+    if(selectedSources.size && !selectedSources.has(String(r.source??'').trim())) return false;
+    if(selectedCompanies.size && !selectedCompanies.has(String(r.comp??'').trim())) return false;
     if(activeOnlyChk.checked && !activeOnlyChk.disabled){
       if(r.status !== 'ACTIVE') return false;
     }
     if(urgentOnlyChk.checked){
-      if(!['No contract','P1','P2'].includes(r.renewal)) return false;
+      if(!['No contract','P1'].includes(r.renewal)) return false;
     }
     return true;
   }
@@ -867,14 +900,15 @@
   overlay.addEventListener('click', e => { if(e.target === overlay) overlay.style.display = 'none'; });
 
   searchInput.addEventListener('input', render);
-  renewalSelect.addEventListener('change', () => { activeFilter = renewalSelect.value; buildSummary(); render(); });
-  categorySelect.addEventListener('change', render);
+
   activeOnlyChk.addEventListener('change', render);
   urgentOnlyChk.addEventListener('change', render);
   clearFiltersBtn.addEventListener('click', () => {
     searchInput.value = '';
-    renewalSelect.value = 'all';
-    categorySelect.value = 'all';
+    selectedRenewals.clear();
+    syncRenewalMulti();
+    selectedSources.clear();selectedCompanies.clear();
+    document.getElementById('sourceMulti').sync();document.getElementById('companyMulti').sync();
     urgentOnlyChk.checked = false;
     activeOnlyChk.checked = false;
     activeFilter = 'all';
