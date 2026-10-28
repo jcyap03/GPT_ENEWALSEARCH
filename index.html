@@ -13,7 +13,7 @@ header h1{margin:0 0 5px;font-size:24px} header p{margin:0;opacity:.9;font-size:
 main{padding:20px;max-width:1700px;margin:auto}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 4px 18px #1720330d;margin-bottom:16px}
 .grid{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:12px;align-items:end}.field label{display:block;font-size:12px;font-weight:700;color:#475569;margin:0 0 6px}.field input,.field select{width:100%;height:42px;border:1px solid #cfd8e6;border-radius:9px;padding:0 11px;background:#fff;color:var(--ink)}
 button{height:42px;border:0;border-radius:9px;padding:0 15px;font-weight:700;cursor:pointer}.primary{background:var(--blue);color:#fff}.secondary{background:#e9f2fd;color:var(--blue)}.ghost{background:#eef1f5;color:#334155}.danger{background:#fff0f0;color:var(--red)}button:disabled{opacity:.45;cursor:not-allowed}
-.upload{border:2px dashed #b9c9dc;border-radius:12px;padding:16px;text-align:center;background:#f8fbff}.upload.drag{border-color:var(--blue);background:#edf6ff}.upload input{display:none}.upload strong{color:var(--blue)}
+.upload{border:2px dashed #b9c9dc;border-radius:12px;padding:16px;text-align:center;background:#f8fbff}.upload.drag{border-color:var(--blue);background:#edf6ff}.upload input{display:block;margin:12px auto 4px;max-width:100%}.upload strong{color:var(--blue)}
 .status{font-size:13px;margin-top:10px;color:var(--muted)}.stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.pill{border:1px solid var(--line);border-radius:999px;padding:7px 11px;background:#fff;font-size:12px}.pill b{margin-left:4px}
 .actions{display:flex;gap:8px;flex-wrap:wrap}.tablewrap{overflow:auto;max-height:68vh;border:1px solid var(--line);border-radius:10px}table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px}th,td{padding:9px 10px;border-right:1px solid #e8edf4;border-bottom:1px solid #e8edf4;white-space:nowrap}th{position:sticky;top:0;background:#edf4fc;color:#1e3a5f;z-index:2;text-align:left}tr:hover td{background:#f7fbff}.num{text-align:right}.tag{display:inline-block;border-radius:999px;padding:3px 8px;font-weight:700;font-size:11px}.p0{background:#ffe3e3;color:#a51111}.p1{background:#fff3bf;color:#8a5200}.p2{background:#d3f9d8;color:#087f5b}.p3{background:#dbeafe;color:#1d4ed8}.p4{background:#ede9fe;color:#6d28d9}.empty{text-align:center;padding:36px;color:var(--muted)}
 .small{font-size:11px;color:var(--muted)}.checkboxes{display:flex;gap:12px;flex-wrap:wrap;padding-top:7px}.checkboxes label{font-size:12px}.checkboxes input{vertical-align:middle}.notice{background:#fff8db;border:1px solid #ffe08a;color:#73510d;border-radius:9px;padding:9px 11px;font-size:12px;margin-top:10px}
@@ -31,6 +31,7 @@ button{height:42px;border:0;border-radius:9px;padding:0 15px;font-weight:700;cur
 <body>
 <header><h1>CY xC/xD Renewal Search Centre</h1><p>Upload either your xC/xD workbook or the single-sheet Renewal Search export. Processing stays in your browser.</p></header>
 <main>
+<div class="tabs"><button class="tab selected" id="searchTab" type="button">Search Data</button><button class="tab" id="dashboardTab" type="button">Summary Dashboard</button></div>
 <div class="card">
   <div id="dropZone" class="upload">
     <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsb,.csv" />
@@ -43,6 +44,7 @@ button{height:42px;border:0;border-radius:9px;padding:0 15px;font-weight:700;cur
     <span class="pill">xC rows <b id="xcCount">0</b></span><span class="pill">xD rows <b id="xdCount">0</b></span><span class="pill">Renewal-file rows <b id="renewalCount">0</b></span><span class="pill">Combined <b id="totalCount">0</b></span><span class="pill">Results <b id="resultCount">0</b></span>
   </div>
 </div>
+<div id="searchPanel" class="panel">
 <div class="card">
   <div class="grid">
     <div class="field"><label>Search all selected columns</label><input id="search" placeholder="Company, CUG, account, MSISDN, plan..." /></div>
@@ -77,6 +79,28 @@ button{height:42px;border:0;border-radius:9px;padding:0 15px;font-weight:700;cur
  </div>
  <p class="dashnote">Counts are subscription rows, not unique customers. Fees and penalties are calculated estimates based on uploaded records. No-contract lines have zero calculated penalty. Data stays in your browser.</p>
  <div class="actions" style="margin-top:12px"><button id="dashExport" class="secondary" disabled>Export Dashboard Data to Excel</button></div>
+</div></div>
+</div>
+<div id="dashboardPanel" class="panel" hidden>
+<div class="card">
+<h2>Renewal Summary Dashboard</h2>
+<p class="small">Dashboard updates automatically after uploading a file above.</p>
+<div class="grid">
+<div class="field"><label>Search company / account / MSISDN</label><input id="dashSearch" placeholder="Search dashboard data"></div>
+<div class="field"><label>Renewal Type</label><select id="dashRenewal"><option value="">All types</option><option>No contract</option><option>P1</option><option>P2</option><option>P3</option><option>P4</option></select></div>
+<div class="field"><label>Source</label><select id="dashSource"><option value="">All sources</option><option value="xC">xC</option><option value="xD">xD</option></select></div>
+<button id="dashClear" class="ghost">Clear Filters</button>
+</div>
+<div class="checkboxes"><label><input type="checkbox" id="dashActive"> Active only</label></div>
+<div id="dashMetrics" class="dashgrid" style="margin-top:18px"></div>
+<div class="dashsections">
+<div class="dashbox"><h3>Renewal Type Breakdown</h3><div id="dashRenewalBars"></div></div>
+<div class="dashbox"><h3>xC / xD Breakdown</h3><div id="dashSourceBars"></div></div>
+<div class="dashbox"><h3>Top 10 Companies by Lines</h3><div id="dashCompanies"></div></div>
+<div class="dashbox"><h3>Contract Expiry by Month (Next 12 Months)</h3><div id="dashExpiry"></div></div>
+</div>
+<p class="dashnote">Counts represent subscription rows. Penalties are estimates. No-contract lines have zero calculated penalty.</p>
+<div class="actions"><button id="dashExport" class="secondary" disabled>Export Dashboard Data to Excel</button></div>
 </div></div>
 </main>
 <script>
@@ -146,7 +170,7 @@ function renderDashboard(){
  bars('dashSourceBars',grouped(rows,r=>r.source));
  bars('dashCompanies',grouped(rows,r=>r.company||r.customerName).slice(0,10));
  const now=new Date(), begin=new Date(now.getFullYear(),now.getMonth(),1), months=Array.from({length:12},(_,i)=>new Date(begin.getFullYear(),begin.getMonth()+i,1));
- bars('dashExpiry',months.map(d=>({name:d.toLocaleDateString('en-MY',{month:'short',year:'2-digit'}),count:rows.filter(r=>r.expiryDate&&r.expiryDate.getFullYear()===d.getFullYear()&&r.expiryDate.getMonth()===d.getMonth()).length})));
+ bars('dashExpiry',months.map(d=>({name:d.toLocaleDateString('en-MY',{month:'short',year:'2-digit'}),count:rows.filter(r=>parseDate(r.expiryRaw)&&parseDate(r.expiryRaw).getFullYear()===d.getFullYear()&&parseDate(r.expiryRaw).getMonth()===d.getMonth()).length})));
  $('dashExport').disabled=!rows.length;
 }
 function render(){
@@ -165,7 +189,8 @@ function render(){
  }).join('')+'</tr>').join(''):`<tr><td colspan="${COLS.length}" class="empty">No matching data.</td></tr>`;
  if(filteredRows.length>5000)$('notice').style.display='block',$('notice').textContent='Showing the first 5,000 matching rows on screen. Export includes all results.';
  else $('notice').style.display='none';
- renderDashboard();\n const enabled=filteredRows.length>0; ['exportXlsx','exportCsv','copy'].forEach(id=>$(id).disabled=!enabled);
+ renderDashboard();
+ const enabled=filteredRows.length>0; ['exportXlsx','exportCsv','copy'].forEach(id=>$(id).disabled=!enabled);
 }
 async function loadFile(file){
  $('status').textContent=`Reading ${file.name}...`; try{
@@ -187,11 +212,16 @@ async function loadFile(file){
  }catch(e){allRows=[];$('xcCount').textContent='0';$('xdCount').textContent='0';$('renewalCount').textContent='0';$('totalCount').textContent='0';render();$('status').textContent='Error: '+e.message;}
 }
 function exportRows(type){const data=filteredRows.map(r=>Object.fromEntries(COLS.map(([label,k])=>[label,k==='expiry'?r.expiry:(['monthly','rebate','finalPrice','penalty','sourcePenalty','remaining'].includes(k)?r[k]:r[k])]))); const ws=XLSX.utils.json_to_sheet(data); ws['!cols']=COLS.map(([l])=>({wch:Math.min(35,Math.max(12,l.length+2))})); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Search Results'); if(type==='xlsx')XLSX.writeFile(wb,'CY_xC_xD_Search_Results.xlsx'); else XLSX.writeFile(wb,'CY_xC_xD_Search_Results.csv',{bookType:'csv'});}
-$('dropZone').onclick=()=>$('fileInput').click(); $('fileInput').onchange=e=>e.target.files[0]&&loadFile(e.target.files[0]);
+$('fileInput').onchange=e=>e.target.files[0]&&loadFile(e.target.files[0]);
 ['dragenter','dragover'].forEach(ev=>$('dropZone').addEventListener(ev,e=>{e.preventDefault();$('dropZone').classList.add('drag')})); ['dragleave','drop'].forEach(ev=>$('dropZone').addEventListener(ev,e=>{e.preventDefault();$('dropZone').classList.remove('drag')})); $('dropZone').addEventListener('drop',e=>e.dataTransfer.files[0]&&loadFile(e.dataTransfer.files[0]));
 ['search','renewal','source','activeOnly','renewableOnly'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
 $('clear').onclick=()=>{$('search').value='';$('renewal').value='';$('source').value='';$('activeOnly').checked=false;$('renewableOnly').checked=false;render()};
 $('exportXlsx').onclick=()=>exportRows('xlsx'); $('exportCsv').onclick=()=>exportRows('csv'); $('copy').onclick=async()=>{const lines=[COLS.map(c=>c[0]).join('\t'),...filteredRows.map(r=>COLS.map(c=>r[c[1]]??'').join('\t'))]; await navigator.clipboard.writeText(lines.join('\n')); $('copy').textContent='Copied';setTimeout(()=>$('copy').textContent='Copy Table',1200)};
+function showPanel(which){const dash=which==='dashboard';$('searchPanel').hidden=dash;$('dashboardPanel').hidden=!dash;$('searchTab').classList.toggle('selected',!dash);$('dashboardTab').classList.toggle('selected',dash);if(dash)renderDashboard();}
+$('searchTab').onclick=()=>showPanel('search');$('dashboardTab').onclick=()=>showPanel('dashboard');
+['dashSearch','dashRenewal','dashSource','dashActive'].forEach(id=>$(id).addEventListener(id==='dashSearch'?'input':'change',renderDashboard));
+$('dashClear').onclick=()=>{$('dashSearch').value='';$('dashRenewal').value='';$('dashSource').value='';$('dashActive').checked=false;renderDashboard()};
+$('dashExport').onclick=()=>{const rows=dashRows();const data=rows.map(r=>Object.fromEntries(COLS.map(([label,k])=>[label,r[k]??''])));const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Dashboard Data');XLSX.writeFile(wb,'CY_Renewal_Dashboard_Data.xlsx')};
 render();
 </script>
 </body>
