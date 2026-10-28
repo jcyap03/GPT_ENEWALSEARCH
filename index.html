@@ -340,12 +340,10 @@
 
     </div><!-- searchView -->
     <div id="dashboardView" class="view-panel" hidden>
-      <div class="filter-panel"><div class="filter-grid">
-        <div class="f-field f-search"><label>Company / Account / MSISDN</label><input id="dashSearch" placeholder="Search dashboard data"></div>
-        <div class="f-field"><label>Renewal Type</label><select id="dashRenewal"><option value="all">All</option><option value="No contract">No Contract</option><option>P1</option><option>P2</option><option>P3</option><option>P4</option></select></div>
-        <div class="f-field"><label>Source</label><select id="dashSource"><option value="all">All sources</option></select></div>
-        <button class="btn-line" id="dashClear" type="button">Clear Filters</button>
-      </div><div class="filter-checks"><label class="chk"><input type="checkbox" id="dashActive"> Active only</label><span class="count-pill" id="dashCount"></span></div></div>
+      <div class="filter-panel"><strong>Dashboard follows Search Data filters</strong>
+        <div class="count-pill" id="dashCount" style="margin-top:8px"></div>
+        <p style="margin:10px 0 0;color:var(--ink-soft);font-size:13px">Select Renewal Type, Source, Company, Active only, or search in the Search Data tab. This dashboard shows exactly those matching lines.</p>
+      </div>
       <div id="dashMetrics" class="dashboard-grid"></div>
       <div class="dash-layout">
         <div class="dash-panel"><h3>Renewal Type Breakdown</h3><div id="dashRenewalBars"></div></div>
@@ -1001,12 +999,9 @@
   }
   searchViewBtn.addEventListener('click', () => setView('search'));
   dashboardViewBtn.addEventListener('click', () => setView('dashboard'));
+  // Dashboard uses exactly the same filtered rows shown in Search Data.
   function dashboardRows(){
-    const q=document.getElementById('dashSearch').value.trim().toLowerCase();
-    const renewal=document.getElementById('dashRenewal').value;
-    const source=document.getElementById('dashSource').value;
-    const active=document.getElementById('dashActive').checked;
-    return allRows.filter(r=>(!q||r.search.includes(q))&&(renewal==='all'||r.renewal===renewal)&&(source==='all'||String(r.source)===source)&&(!active||r.status==='ACTIVE'));
+    return getFiltered();
   }
   function dashboardGroups(rows, field){
     const counts=new Map();
@@ -1037,15 +1032,6 @@
     const months=Array.from({length:12},(_,i)=>new Date(today.getFullYear(),today.getMonth()+i,1));
     dashboardBars('dashExpiryBars',months.map(d=>({label:d.toLocaleDateString('en-GB',{month:'short',year:'2-digit'}),count:rows.filter(r=>r.expiry instanceof Date&&!isNaN(r.expiry.getTime())&&r.expiry.getFullYear()===d.getFullYear()&&r.expiry.getMonth()===d.getMonth()).length})));
   }
-  ['dashSearch','dashRenewal','dashSource','dashActive'].forEach(id=>document.getElementById(id).addEventListener(id==='dashSearch'?'input':'change',renderDashboard));
-  document.getElementById('dashClear').addEventListener('click',()=>{
-    document.getElementById('dashSearch').value='';document.getElementById('dashRenewal').value='all';document.getElementById('dashSource').value='all';document.getElementById('dashActive').checked=false;renderDashboard();
-  });
-  function updateDashboardSources(){
-    const el=document.getElementById('dashSource');
-    el.innerHTML='<option value="all">All sources</option>'+[...new Set(allRows.map(r=>String(r.source||'')).filter(Boolean))].sort().map(v=>'<option value="'+escapeHtml(v)+'">'+escapeHtml(v)+'</option>').join('');
-  }
-
   let toastTimer = null;
   function showToast(msg){
     let t = document.getElementById('toast');
