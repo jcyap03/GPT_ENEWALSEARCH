@@ -990,9 +990,9 @@
     const sum=key=>rows.reduce((acc,r)=>acc+(typeof r[key]==='number'&&Number.isFinite(r[key])?r[key]:0),0);
     const companyCount=new Set(rows.map(r=>String(r.comp||'').trim().toLowerCase()).filter(Boolean)).size;
     const noContract=rows.filter(r=>r.renewal==='No contract').length;
-    const p1p2=rows.filter(r=>r.renewal==='P1'||r.renewal==='P2').length;
+    const noContractP1=rows.filter(r=>r.renewal==='No contract'||r.renewal==='P1').length;
     const money=n=>'RM '+n.toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
-    const metrics=[['Total Lines',rows.length.toLocaleString()],['Companies',companyCount.toLocaleString()],['Monthly Commitment',money(sum('fee'))],['Estimated Penalty',money(sum('penalty'))],['No Contract',noContract.toLocaleString()],['P1 + P2',p1p2.toLocaleString()],['Active Lines',rows.filter(r=>r.status==='ACTIVE').length.toLocaleString()],['Contracted Lines',(rows.length-noContract).toLocaleString()]];
+    const metrics=[['Total Lines',rows.length.toLocaleString()],['Companies',companyCount.toLocaleString()],['Monthly Commitment',money(sum('fee'))],['Estimated Penalty',money(sum('penalty'))],['No Contract',noContract.toLocaleString()],['No Contract + P1',noContractP1.toLocaleString()],['Active Lines',rows.filter(r=>r.status==='ACTIVE').length.toLocaleString()],['Contracted Lines',(rows.length-noContract).toLocaleString()]];
     document.getElementById('dashMetrics').innerHTML=metrics.map(([name,value])=>'<div class="dash-metric"><div class="name">'+escapeHtml(name)+'</div><div class="value">'+escapeHtml(value)+'</div></div>').join('');
     document.getElementById('dashCount').textContent=rows.length.toLocaleString()+' of '+allRows.length.toLocaleString()+' lines';
     const renew=dashboardGroups(rows,r=>r.renewal);
