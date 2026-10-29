@@ -261,7 +261,7 @@
         category, EST_EXPIRY_DATE, commitment, occ, net_cv.<br>
         A sheet named <b>xC</b> with MSISDN and STATUS is optional, for the "Active only" filter.<br><br>
         <b>Format 2 — INFOVIEW style:</b><br>
-        Any sheet with: BILLING_ACCOUNT_NUMBER, MSISDN, PRODUCT_NAME, LOB_NEW, STATUS,
+        Any sheet with: BILLING_ACCOUNT_NUMBER, MSISDN, PRODUCT_NAME, STATUS,
         CONTRACT_END_DATE, COMMITMENT_FEE, COMPANY_NAME, BSS_ID. Status and source
         (CELCOM/DIGI) are picked up automatically here — no separate tab needed.<br><br>
         <b>Worked out for you automatically:</b> Remaining Months, Penalty Fee
@@ -377,7 +377,7 @@
 <script>
 (function(){
   const REQUIRED_HEADERS = ['CMPNY_NM','CUG_NM','ACCT_NUM','SUBS_MSISDN','SUBS_PRMRY_OFRNG','category','EST_EXPIRY_DATE','commitment','occ','net_cv'];
-  const INFOVIEW_HEADERS = ['BILLING_ACCOUNT_NUMBER','MSISDN','PRODUCT_NAME','LOB_NEW','STATUS','CONTRACT_END_DATE','COMMITMENT_FEE','COMPANY_NAME','BSS_ID'];
+  const INFOVIEW_HEADERS = ['BILLING_ACCOUNT_NUMBER','MSISDN','PRODUCT_NAME','STATUS','CONTRACT_END_DATE','COMMITMENT_FEE','COMPANY_NAME','BSS_ID'];
 
   let allRows = [];
   let xcStatusMap = new Map();
@@ -507,7 +507,7 @@
   function findHeaderRow(rows, headers, minHits){
     const scanLimit = Math.min(rows.length, 5);
     for(let i=0;i<scanLimit;i++){
-      const row = rows[i].map(v => (v===null||v===undefined) ? '' : String(v).trim());
+      const row = rows[i].map(v => (v===null||v===undefined) ? '' : String(v).trim().toUpperCase());
       const hits = headers.filter(h => row.includes(h)).length;
       if(hits >= minHits) return i;
     }
@@ -531,7 +531,7 @@
     const found = findSheet(wb);
     if(!found) return [];
     const {rows, headerRowIdx} = found;
-    const header = rows[headerRowIdx].map(v => (v===null||v===undefined) ? '' : String(v).trim());
+    const header = rows[headerRowIdx].map(v => (v===null||v===undefined) ? '' : String(v).trim().toUpperCase());
     const idx = {};
     REQUIRED_HEADERS.forEach(h => { idx[h] = header.indexOf(h); });
     if(Object.values(idx).some(v => v === -1)) return [];
@@ -581,7 +581,7 @@
     const found = findInfoviewSheet(wb);
     if(!found) return [];
     const {rows, headerRowIdx} = found;
-    const header = rows[headerRowIdx].map(v => (v===null||v===undefined) ? '' : String(v).trim());
+    const header = rows[headerRowIdx].map(v => (v===null||v===undefined) ? '' : String(v).trim().toUpperCase());
     const idx = {};
     INFOVIEW_HEADERS.forEach(h => { idx[h] = header.indexOf(h); });
     if(Object.values(idx).some(v => v === -1)) return [];
@@ -612,7 +612,7 @@
         acct: row[idx['BILLING_ACCOUNT_NUMBER']] ?? '',
         msisdn: msisdn,
         product: row[idx['PRODUCT_NAME']] ?? '',
-        category: row[idx['LOB_NEW']] ?? '',
+        category: (header.includes('LOB_NEW') ? row[header.indexOf('LOB_NEW')] : row[header.indexOf('ACCOUNT_TYPE')]) ?? '',
         expiry: expiry,
         fee: commitment,
         occ: null,
