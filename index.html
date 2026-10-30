@@ -294,7 +294,7 @@
   <!-- APP STAGE -->
   <div id="appStage">
 
-    <div class="view-tabs"><button type="button" class="view-tab selected" id="searchViewBtn">Search Data</button><button type="button" class="view-tab" id="dashboardViewBtn">Summary Dashboard</button><button type="button" class="view-tab" id="proposalViewBtn">Renewal Proposal</button></div>
+    <div class="view-tabs"><button type="button" class="view-tab selected" id="searchViewBtn">Search Data</button><button type="button" class="view-tab" id="dashboardViewBtn">Summary Dashboard</button><button type="button" class="view-tab" id="proposalViewBtn">Renewal Proposal</button><button type="button" class="view-tab" id="historyViewBtn">Proposal History</button></div>
     <div id="searchView" class="view-panel">
     <div class="summary" id="summaryCards"></div>
 
@@ -387,6 +387,7 @@
           <button type="button" class="btn-primary" id="proposalApply">Apply to Selected Lines</button>
           <button type="button" class="btn-line" id="proposalAdd">Add Manual Line</button>
           <button type="button" class="btn-line" id="proposalExport">Export Proposal Excel</button>
+          <button type="button" class="btn-primary" id="proposalSave">Save to Google Drive</button>
           <button type="button" class="btn-line" id="proposalReset">Clear Proposal</button>
         </div>
       </div>
@@ -403,6 +404,19 @@
         <div class="proposal-table-wrap"><table class="proposal-table" style="min-width:680px"><thead><tr><th>Remove</th><th>Device Model</th><th>Quantity</th><th>RRP (RM)</th><th>Total RRP (RM)</th></tr></thead><tbody id="deviceRows"></tbody></table></div>
         <p class="proposal-note">Balance = combined subsidy pool − total device RRP. A negative balance means additional top-up is needed. RRP is an editable input, not a verified device selling price.</p>
       </div>
+    </div>
+    <div id="historyView" class="view-panel" hidden>
+      <div class="proposal-card"><h3>Google Drive Proposal History</h3>
+        <p class="proposal-note">Connect your Google Apps Script web app. Use the same URL and access key on each device. Saved proposals are stored in a Google Sheet with JSON revision backups in Drive.</p>
+        <div class="proposal-grid">
+          <div class="proposal-field"><label>Apps Script Web App URL</label><input id="historyUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
+          <div class="proposal-field"><label>Access Key</label><input id="historyKey" type="password" placeholder="Your private access key"></div>
+          <div class="proposal-field"><label>Search Proposal</label><input id="historySearch" placeholder="Customer / proposal number"></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button type="button" class="btn-primary" id="historyRefresh">Load History</button><button type="button" class="btn-line" id="historySettings">Save Connection on This Device</button></div>
+        <p id="historyStatus" class="proposal-note" role="status" style="margin-top:10px"></p>
+      </div>
+      <div class="proposal-card"><h3>Saved Proposals</h3><div class="proposal-table-wrap"><table class="proposal-table" style="min-width:760px"><thead><tr><th>Proposal No.</th><th>Customer</th><th>Version</th><th>Lines</th><th>Last Updated</th><th>Actions</th></tr></thead><tbody id="historyRows"><tr><td colspan="6">Connect and load history.</td></tr></tbody></table></div></div>
     </div>
     <div id="dashboardView" class="view-panel" hidden>
       <div class="filter-panel"><strong>Dashboard follows Search Data filters</strong>
@@ -1060,7 +1074,7 @@
   const dashboardViewBtn = document.getElementById('dashboardViewBtn');
   const proposalViewBtn=document.getElementById('proposalViewBtn');
   function setView(view){
-    for(const name of ['search','dashboard','proposal']){
+    for(const name of ['search','dashboard','proposal','history']){
       document.getElementById(name+'View').hidden=(view!==name);
       document.getElementById(name+'ViewBtn').classList.toggle('selected',view===name);
     }
@@ -1070,6 +1084,7 @@
   searchViewBtn.addEventListener('click',()=>setView('search'));
   dashboardViewBtn.addEventListener('click',()=>setView('dashboard'));
   proposalViewBtn.addEventListener('click',()=>setView('proposal'));
+  document.getElementById('historyViewBtn').addEventListener('click',()=>setView('history'));
   // Dashboard uses exactly the same filtered rows shown in Search Data.
   function dashboardRows(){
     return getFiltered();
@@ -1162,7 +1177,7 @@
     renderProposal();
   };
   pEl('proposalAdd').onclick=()=>{proposalRowsData.push(newProposalRow());renderProposal()};
-  pEl('proposalReset').onclick=()=>{if(confirm('Clear all proposal lines and devices?')){proposalRowsData.length=0;proposalDevices.length=0;renderProposal()}};
+  pEl('proposalReset').onclick=()=>{if(confirm('Clear current proposal? Previously saved history will remain.')){proposalRowsData.length=0;proposalDevices.length=0;pEl('proposalCustomer').value='';currentProposalId='';currentProposalVersion=0;renderProposal()}};
   pEl('proposalSubsidyType').addEventListener('change',renderProposal);
   pEl('proposalDeviceSubsidyType').addEventListener('change',renderProposal);
   pEl('addDevice').onclick=()=>{proposalDevices.push({model:'',qty:1,rrp:''});renderProposal()};
@@ -1197,10 +1212,10 @@
     const rrp=proposalDevices.reduce((n,d)=>n+pNum(d.qty)*pNum(d.rrp),0);
     const totalMrc=proposalRowsData.reduce((n,r)=>n+(r.fee===''?0:pNum(r.fee)-pNum(r.rebate)),0);
     const kp=[['Proposed Lines',proposalRowsData.length],['Total Monthly Fees',pMoney(totalMrc)],['Combined Subsidy Pool',pMoney(pool)],['Combined Subsidy Balance',pMoney(pool-rrp)]];
-    pEl('proposalKpis').innerHTML=kp.map(([k,v])=>'<div class="proposal-kpi"><small>'+escapeHtml(k)+'</small><strong>'+escapeHtml(v)+'</strong></div>').join('');
+    pEl('proposalKpis').innerHTML=kp.map(([k,v])=>'<div class="proposal-kpi"><small>'+escapeHtml(k)+'</small><strong'+(k==='Combined Subsidy Balance'&&pool-rrp<0?' style="color:#dc2626"':'')+'>'+escapeHtml(v)+'</strong></div>').join('');
     const show=combined.length>0||pEl('proposalSubsidyType').value==='Device'&&pEl('proposalDeviceSubsidyType').value==='Combine';
     pEl('combinedSection').hidden=!show;
-    pEl('combinedKpis').innerHTML=[['Eligible Lines',combined.length],['Available Subsidy',pMoney(pool)],['Total Device RRP',pMoney(rrp)],['Balance / Top-up',pMoney(pool-rrp)]].map(([k,v])=>'<div class="proposal-kpi"><small>'+k+'</small><strong>'+v+'</strong></div>').join('');
+    pEl('combinedKpis').innerHTML=[['Eligible Lines',combined.length],['Available Subsidy',pMoney(pool)],['Total Device RRP',pMoney(rrp)],['Balance / Top-up',pMoney(pool-rrp)]].map(([k,v])=>'<div class="proposal-kpi"><small>'+k+'</small><strong'+(k==='Balance / Top-up'&&pool-rrp<0?' style="color:#dc2626"':'')+'>'+v+'</strong></div>').join('');
     pEl('deviceRows').innerHTML=proposalDevices.map((d,i)=>'<tr><td><button type="button" class="btn-line" data-device-remove="'+i+'">×</button></td><td><input data-di="'+i+'" data-dk="model" value="'+escapeHtml(d.model)+'" placeholder="Device model"></td><td><input type="number" min="1" step="1" data-di="'+i+'" data-dk="qty" value="'+escapeHtml(d.qty)+'"></td><td><input type="number" min="0" step="0.01" data-di="'+i+'" data-dk="rrp" value="'+escapeHtml(d.rrp)+'"></td><td><strong>'+pMoney(pNum(d.qty)*pNum(d.rrp))+'</strong></td></tr>').join('')||'<tr><td colspan="5" style="text-align:center;padding:18px">Add devices to track redemption and balance.</td></tr>';
     pEl('deviceRows').querySelectorAll('[data-di]').forEach(el=>el.addEventListener('change',()=>{proposalDevices[Number(el.dataset.di)][el.dataset.dk]=el.value;renderProposal()}));
     pEl('deviceRows').querySelectorAll('[data-device-remove]').forEach(el=>el.onclick=()=>{proposalDevices.splice(Number(el.dataset.deviceRemove),1);renderProposal()});
@@ -1217,6 +1232,76 @@
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Device Model','Qty','RRP','Total RRP'],...proposalDevices.map(d=>[d.model,pNum(d.qty),pNum(d.rrp),pNum(d.qty)*pNum(d.rrp)]),[],['Combined Subsidy Pool',pool],['Total Device RRP',spent],['Balance / Top-up',pool-spent]]),'Combined Subsidy');
     XLSX.writeFile(wb,'renewal-proposal.xlsx');
   };
+
+  // Apps Script uses a hidden form POST to avoid cross-origin fetch limitations.
+  // A one-time iframe returns a message; never report a save as successful before confirmation.
+  let currentProposalId='',currentProposalVersion=0,historyCache=[];
+  const historyUrlEl=pEl('historyUrl'),historyKeyEl=pEl('historyKey'),historyStatus=pEl('historyStatus');
+  historyUrlEl.value=localStorage.getItem('cyHistoryUrl')||'';
+  historyKeyEl.value=sessionStorage.getItem('cyHistoryKey')||'';
+  pEl('historySettings').onclick=()=>{
+    const u=historyUrlEl.value.trim();
+    if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(u)){alert('Enter a valid Google Apps Script deployment URL ending in /exec.');return}
+    localStorage.setItem('cyHistoryUrl',u);
+    sessionStorage.setItem('cyHistoryKey',historyKeyEl.value.trim());
+    historyStatus.textContent='Connection saved on this device. Access key is kept for this browser session.';
+  };
+  function callHistory(action, data={}){
+    return new Promise((resolve,reject)=>{
+      const url=historyUrlEl.value.trim(),key=historyKeyEl.value.trim();
+      if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url))return reject(new Error('Set the Apps Script URL in Proposal History first.'));
+      if(!key)return reject(new Error('Enter the access key in Proposal History.'));
+      const id='cy'+Date.now()+Math.random().toString(36).slice(2);
+      const iframe=document.createElement('iframe');iframe.name=id;iframe.style.display='none';
+      const form=document.createElement('form');form.method='POST';form.action=url;form.target=id;form.style.display='none';
+      const payload=JSON.stringify({action,key,...data,requestId:id});
+      const field=document.createElement('input');field.name='payload';field.value=payload;form.appendChild(field);
+      let done=false;
+      const cleanup=()=>{window.removeEventListener('message',listener);clearTimeout(timer);setTimeout(()=>{iframe.remove();form.remove()},100)};
+      const listener=e=>{
+        if(!/^https:\/\/(?:[a-z0-9-]+\.)*(?:googleusercontent\.com|google\.com)$/.test(e.origin)||!e.data||e.data.requestId!==id||e.data.channel!=='CY_PROPOSAL_HISTORY')return;
+        done=true;cleanup();e.data.ok?resolve(e.data.result):reject(new Error(e.data.error||'Unknown server error'));
+      };
+      const timer=setTimeout(()=>{if(!done){cleanup();reject(new Error('No confirmation received. Check Apps Script deployment, access permissions and connection.'))}},30000);
+      window.addEventListener('message',listener);document.body.append(iframe,form);form.submit();
+    });
+  }
+  function proposalSnapshot(){return {customer:pEl('proposalCustomer').value.trim()||proposalRowsData[0]?.company||'',rows:proposalRowsData.map(r=>({...r})),devices:proposalDevices.map(d=>({...d})),savedAt:new Date().toISOString()}}
+  pEl('proposalSave').onclick=async()=>{
+    if(!proposalRowsData.length){alert('Add proposal lines first.');return}
+    if(!proposalSnapshot().customer){alert('Enter a customer / proposal name.');return}
+    const btn=pEl('proposalSave');btn.disabled=true;btn.textContent='Saving…';
+    try{
+      const result=await callHistory('save',{id:currentProposalId,expectedVersion:currentProposalVersion,proposal:proposalSnapshot()});
+      currentProposalId=result.id;currentProposalVersion=result.version;
+      alert('Saved successfully: '+result.id+' (Version '+result.version+').');
+    }catch(e){alert('Save not confirmed: '+e.message)}finally{btn.disabled=false;btn.textContent='Save to Google Drive'}
+  };
+  async function refreshHistory(){
+    historyStatus.textContent='Loading…';
+    try{historyCache=await callHistory('list');drawHistory();historyStatus.textContent=historyCache.length+' saved proposal(s) found.'}
+    catch(e){historyStatus.textContent='Could not load: '+e.message}
+  }
+  pEl('historyRefresh').onclick=refreshHistory;
+  pEl('historySearch').addEventListener('input',drawHistory);
+  function drawHistory(){
+    const q=pEl('historySearch').value.trim().toLowerCase();
+    const matches=historyCache.filter(r=>(r.id+' '+r.customer).toLowerCase().includes(q));
+    pEl('historyRows').innerHTML=matches.map(r=>'<tr><td>'+escapeHtml(r.id)+'</td><td>'+escapeHtml(r.customer)+'</td><td>'+escapeHtml(r.version)+'</td><td>'+escapeHtml(r.lines)+'</td><td>'+escapeHtml(r.updatedAt)+'</td><td><button type="button" class="btn-line" data-open-history="'+escapeHtml(r.id)+'">Open</button> <button type="button" class="btn-line" data-copy-history="'+escapeHtml(r.id)+'">Duplicate</button></td></tr>').join('')||'<tr><td colspan="6">No matching proposals.</td></tr>';
+    pEl('historyRows').querySelectorAll('[data-open-history],[data-copy-history]').forEach(btn=>btn.onclick=async()=>{
+      try{
+        const r=await callHistory('get',{id:btn.dataset.openHistory||btn.dataset.copyHistory});
+        if(proposalRowsData.length&&!confirm('Replace the current unsaved proposal?'))return;
+        proposalRowsData.splice(0,proposalRowsData.length,...r.proposal.rows);
+        proposalDevices.splice(0,proposalDevices.length,...r.proposal.devices);
+        pEl('proposalCustomer').value=r.proposal.customer||'';
+        const duplicate=!!btn.dataset.copyHistory;
+        currentProposalId=duplicate?'':r.id;currentProposalVersion=duplicate?0:r.version;
+        renderProposal();setView('proposal');
+        alert(duplicate?'Copied as a new unsaved proposal.':'Opened '+r.id+' (Version '+r.version+').');
+      }catch(e){alert('Unable to open proposal: '+e.message)}
+    });
+  }
   let toastTimer = null;
   function showToast(msg){
     let t = document.getElementById('toast');
