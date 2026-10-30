@@ -224,6 +224,26 @@
   .renewal-multi-menu input{accent-color:var(--accent)}
   #companyMultiMenu{min-width:320px;max-width:min(480px,90vw)}
   #companyMultiMenu .multi-item span{overflow-wrap:anywhere}
+
+  .proposal-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .proposal-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .proposal-field label{font-size:12px;font-weight:700;color:var(--ink-soft)}
+  .proposal-field input,.proposal-field select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--ink);font:inherit;font-size:13px}
+  .proposal-table-wrap{overflow:auto;margin:16px 0;border:1px solid var(--line);border-radius:10px}
+  .proposal-table{min-width:1100px;width:100%;border-collapse:collapse}
+  .proposal-table th{position:static;background:#eef3fa;white-space:nowrap}
+  .proposal-table td{padding:8px;border-bottom:1px solid var(--line)}
+  .proposal-table input,.proposal-table select{padding:7px;min-width:100px;max-width:220px;border:1px solid var(--line);border-radius:6px;font:inherit}
+  .proposal-table input[type=number]{width:110px;min-width:90px}
+  .proposal-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:15px 0}
+  .proposal-kpi{padding:15px;background:#fff;border:1px solid var(--line);border-radius:10px}
+  .proposal-kpi small{display:block;color:var(--ink-soft);margin-bottom:7px}
+  .proposal-kpi strong{font-size:20px}
+  .proposal-card{background:white;border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+  .proposal-card h3{margin:0 0 12px}
+  .proposal-note{font-size:12px;color:var(--ink-soft);line-height:1.6}
+  @media(max-width:850px){.proposal-grid,.proposal-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:550px){.proposal-grid,.proposal-kpis{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -274,7 +294,7 @@
   <!-- APP STAGE -->
   <div id="appStage">
 
-    <div class="view-tabs"><button type="button" class="view-tab selected" id="searchViewBtn">Search Data</button><button type="button" class="view-tab" id="dashboardViewBtn">Summary Dashboard</button></div>
+    <div class="view-tabs"><button type="button" class="view-tab selected" id="searchViewBtn">Search Data</button><button type="button" class="view-tab" id="dashboardViewBtn">Summary Dashboard</button><button type="button" class="view-tab" id="proposalViewBtn">Renewal Proposal</button></div>
     <div id="searchView" class="view-panel">
     <div class="summary" id="summaryCards"></div>
 
@@ -348,6 +368,42 @@
     </div>
 
     </div><!-- searchView -->
+    <div id="proposalView" class="view-panel" hidden>
+      <div class="proposal-card">
+        <h3>Renewal Proposal Builder</h3>
+        <p class="proposal-note">Uses the lines currently selected in Search Data. Enter proposed terms below. No pricing or subsidy is assumed. Values stay in this browser session; export your proposal to keep a copy.</p>
+        <div class="proposal-grid">
+          <div class="proposal-field"><label>Customer / Proposal Name</label><input id="proposalCustomer" placeholder="Company / proposal name"></div>
+          <div class="proposal-field"><label>Recommended Plan</label><input id="proposalPlan" list="proposalPlanOptions" placeholder="Select or type plan"><datalist id="proposalPlanOptions"></datalist></div>
+          <div class="proposal-field"><label>Monthly Fee (RM / line)</label><input id="proposalFee" type="number" min="0" step="0.01" placeholder="Enter fee"></div>
+          <div class="proposal-field"><label>Rebate (RM / line / month)</label><input id="proposalRebate" type="number" min="0" step="0.01" placeholder="Enter rebate"></div>
+          <div class="proposal-field"><label>Final Price (RM / line)</label><input id="proposalFinal" readonly placeholder="Auto-calculated"></div>
+          <div class="proposal-field"><label>Type</label><select id="proposalType"><option value="">Select type</option><option>Renewal</option><option>New Sign-up</option><option>MNP</option><option>COP</option></select></div>
+          <div class="proposal-field"><label>Device Subsidy (RM / line)</label><input id="proposalSubsidy" type="number" min="0" step="0.01" placeholder="Enter subsidy"></div>
+          <div class="proposal-field"><label>Contract Duration</label><select id="proposalContract"><option value="">Select duration</option><option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="0">No contract</option></select></div>
+          <div class="proposal-field"><label>Subsidy Type</label><select id="proposalSubsidyType"><option value="">Select subsidy type</option><option value="None">No Subsidy</option><option value="Individual">Individual</option><option value="Combine">Combine</option></select></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px">
+          <button type="button" class="btn-primary" id="proposalApply">Apply to Selected Lines</button>
+          <button type="button" class="btn-line" id="proposalAdd">Add Manual Line</button>
+          <button type="button" class="btn-line" id="proposalExport">Export Proposal Excel</button>
+          <button type="button" class="btn-line" id="proposalReset">Clear Proposal</button>
+        </div>
+      </div>
+      <div class="proposal-kpis" id="proposalKpis"></div>
+      <div class="proposal-card">
+        <h3>Proposed Subscription Details</h3>
+        <div class="proposal-table-wrap"><table class="proposal-table"><thead><tr><th>Remove</th><th>Company</th><th>Existing Plan</th><th>MSISDN</th><th>Recommended Plan</th><th>Monthly Fee</th><th>Rebate</th><th>Final Price</th><th>Type</th><th>Device Subsidy / Line</th><th>Contract (Months)</th><th>Subsidy Type</th></tr></thead><tbody id="proposalRows"></tbody></table></div>
+        <p class="proposal-note">Apply to Selected Lines imports the current filtered lines. Edit any row separately. For a combined subsidy, eligible lines contribute their device subsidy to the shared pool.</p>
+      </div>
+      <div class="proposal-card" id="combinedSection" hidden>
+        <h3>Combined Device Subsidy Redemption</h3>
+        <div class="proposal-kpis" id="combinedKpis"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn-primary" id="addDevice">Add Device</button></div>
+        <div class="proposal-table-wrap"><table class="proposal-table" style="min-width:680px"><thead><tr><th>Remove</th><th>Device Model</th><th>Quantity</th><th>RRP (RM)</th><th>Total RRP (RM)</th></tr></thead><tbody id="deviceRows"></tbody></table></div>
+        <p class="proposal-note">Balance = combined subsidy pool − total device RRP. A negative balance means additional top-up is needed. RRP is an editable input, not a verified device selling price.</p>
+      </div>
+    </div>
     <div id="dashboardView" class="view-panel" hidden>
       <div class="filter-panel"><strong>Dashboard follows Search Data filters</strong>
         <div class="count-pill" id="dashCount" style="margin-top:8px"></div>
@@ -1002,16 +1058,18 @@
   // Dashboard is an additional view; the original upload, search and exports remain unchanged.
   const searchViewBtn = document.getElementById('searchViewBtn');
   const dashboardViewBtn = document.getElementById('dashboardViewBtn');
+  const proposalViewBtn=document.getElementById('proposalViewBtn');
   function setView(view){
-    const dashboard = view === 'dashboard';
-    document.getElementById('searchView').hidden = dashboard;
-    document.getElementById('dashboardView').hidden = !dashboard;
-    searchViewBtn.classList.toggle('selected', !dashboard);
-    dashboardViewBtn.classList.toggle('selected', dashboard);
-    if(dashboard) renderDashboard();
+    for(const name of ['search','dashboard','proposal']){
+      document.getElementById(name+'View').hidden=(view!==name);
+      document.getElementById(name+'ViewBtn').classList.toggle('selected',view===name);
+    }
+    if(view==='dashboard')renderDashboard();
+    if(view==='proposal')renderProposal();
   }
-  searchViewBtn.addEventListener('click', () => setView('search'));
-  dashboardViewBtn.addEventListener('click', () => setView('dashboard'));
+  searchViewBtn.addEventListener('click',()=>setView('search'));
+  dashboardViewBtn.addEventListener('click',()=>setView('dashboard'));
+  proposalViewBtn.addEventListener('click',()=>setView('proposal'));
   // Dashboard uses exactly the same filtered rows shown in Search Data.
   function dashboardRows(){
     return getFiltered();
@@ -1054,6 +1112,77 @@
     const months=Array.from({length:12},(_,i)=>new Date(today.getFullYear(),today.getMonth()+i,1));
     dashboardBars('dashExpiryBars',months.map(d=>({label:d.toLocaleDateString('en-GB',{month:'short',year:'2-digit'}),count:rows.filter(r=>r.expiry instanceof Date&&!isNaN(r.expiry.getTime())&&r.expiry.getFullYear()===d.getFullYear()&&r.expiry.getMonth()===d.getMonth()).length})));
   }
+
+  const proposalRowsData=[];
+  const proposalDevices=[];
+  const pEl=id=>document.getElementById(id);
+  const pNum=v=>{const n=Number(v);return Number.isFinite(n)?Math.max(0,n):0};
+  const pMoney=n=>'RM '+n.toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const pOpt=(v,opts)=>opts.map(x=>'<option value="'+escapeHtml(x)+'" '+(String(v)===String(x)?'selected':'')+'>'+escapeHtml(x||'Select')+'</option>').join('');
+  const pTypes=['','Renewal','New Sign-up','MNP','COP'],pContracts=['','0','12','24','36'],pSubTypes=['','None','Individual','Combine'];
+  function updateProposalFinal(){
+    const fee=pEl('proposalFee').value,rebate=pEl('proposalRebate').value;
+    pEl('proposalFinal').value=fee===''?'':(pNum(fee)-pNum(rebate)).toFixed(2);
+  }
+  ['proposalFee','proposalRebate'].forEach(id=>pEl(id).addEventListener('input',updateProposalFinal));
+  function newProposalRow(r={}){
+    return {company:String(r.comp||''),msisdn:String(r.msisdn||''),existing:String(r.product||''),plan:'',fee:'',rebate:'',type:'Renewal',subsidy:'',contract:'',subsidyType:''};
+  }
+  pEl('proposalApply').onclick=()=>{
+    const rows=getFiltered();
+    if(!rows.length){alert('No matching lines in Search Data.');return}
+    const known=new Set(proposalRowsData.map(r=>r.msisdn+'|'+r.company));
+    rows.forEach(r=>{const key=String(r.msisdn)+'|'+String(r.comp);if(!known.has(key)){proposalRowsData.push(newProposalRow(r));known.add(key)}});
+    const values={plan:pEl('proposalPlan').value,fee:pEl('proposalFee').value,rebate:pEl('proposalRebate').value,type:pEl('proposalType').value,subsidy:pEl('proposalSubsidy').value,contract:pEl('proposalContract').value,subsidyType:pEl('proposalSubsidyType').value};
+    proposalRowsData.forEach(r=>{for(const [k,v] of Object.entries(values))if(v!=='')r[k]=v});
+    renderProposal();
+  };
+  pEl('proposalAdd').onclick=()=>{proposalRowsData.push(newProposalRow());renderProposal()};
+  pEl('proposalReset').onclick=()=>{if(confirm('Clear all proposal lines and devices?')){proposalRowsData.length=0;proposalDevices.length=0;renderProposal()}};
+  pEl('proposalSubsidyType').addEventListener('change',renderProposal);
+  pEl('addDevice').onclick=()=>{proposalDevices.push({model:'',qty:1,rrp:''});renderProposal()};
+  function renderProposal(){
+    const plans=[...new Set(allRows.map(r=>String(r.product||'').trim()).filter(Boolean))].sort();
+    pEl('proposalPlanOptions').innerHTML=plans.map(p=>'<option value="'+escapeHtml(p)+'"></option>').join('');
+    const fields=['company','existing','msisdn','plan','fee','rebate','type','subsidy','contract','subsidyType'];
+    pEl('proposalRows').innerHTML=proposalRowsData.map((r,i)=>{
+      const cell=(k,html)=>'<td>'+html+'</td>';
+      const input=(k,typ='text')=>'<input data-i="'+i+'" data-k="'+k+'" type="'+typ+'" '+(typ==='number'?'min="0" step="0.01" ':'')+'value="'+escapeHtml(r[k])+'" '+(k==='plan'?'list="proposalPlanOptions"':'')+'>';
+      const sel=(k,options)=>'<select data-i="'+i+'" data-k="'+k+'">'+pOpt(r[k],options)+'</select>';
+      return '<tr>'+cell('remove','<button type="button" class="btn-line" data-remove="'+i+'">×</button>')
+        +cell('company',input('company'))+cell('existing',escapeHtml(r.existing))+cell('msisdn',input('msisdn'))
+        +cell('plan',input('plan'))+cell('fee',input('fee','number'))+cell('rebate',input('rebate','number'))
+        +cell('final','<strong>'+((r.fee==='')?'—':pMoney(pNum(r.fee)-pNum(r.rebate)))+'</strong>')
+        +cell('type',sel('type',pTypes))+cell('subsidy',input('subsidy','number'))
+        +cell('contract',sel('contract',pContracts))+cell('subsidyType',sel('subsidyType',pSubTypes))+'</tr>';
+    }).join('')||'<tr><td colspan="12" style="text-align:center;padding:24px">Apply selected lines from Search Data to start your proposal.</td></tr>';
+    pEl('proposalRows').querySelectorAll('[data-i]').forEach(el=>el.addEventListener('change',()=>{proposalRowsData[Number(el.dataset.i)][el.dataset.k]=el.value;renderProposal()}));
+    pEl('proposalRows').querySelectorAll('[data-remove]').forEach(el=>el.onclick=()=>{proposalRowsData.splice(Number(el.dataset.remove),1);renderProposal()});
+    const combined=proposalRowsData.filter(r=>r.subsidyType==='Combine');
+    const pool=combined.reduce((n,r)=>n+pNum(r.subsidy),0);
+    const rrp=proposalDevices.reduce((n,d)=>n+pNum(d.qty)*pNum(d.rrp),0);
+    const totalMrc=proposalRowsData.reduce((n,r)=>n+(r.fee===''?0:pNum(r.fee)-pNum(r.rebate)),0);
+    const kp=[['Proposed Lines',proposalRowsData.length],['Total Monthly Fees',pMoney(totalMrc)],['Combined Subsidy Pool',pMoney(pool)],['Combined Subsidy Balance',pMoney(pool-rrp)]];
+    pEl('proposalKpis').innerHTML=kp.map(([k,v])=>'<div class="proposal-kpi"><small>'+escapeHtml(k)+'</small><strong>'+escapeHtml(v)+'</strong></div>').join('');
+    const show=combined.length>0||pEl('proposalSubsidyType').value==='Combine';
+    pEl('combinedSection').hidden=!show;
+    pEl('combinedKpis').innerHTML=[['Eligible Lines',combined.length],['Available Subsidy',pMoney(pool)],['Total Device RRP',pMoney(rrp)],['Balance / Top-up',pMoney(pool-rrp)]].map(([k,v])=>'<div class="proposal-kpi"><small>'+k+'</small><strong>'+v+'</strong></div>').join('');
+    pEl('deviceRows').innerHTML=proposalDevices.map((d,i)=>'<tr><td><button type="button" class="btn-line" data-device-remove="'+i+'">×</button></td><td><input data-di="'+i+'" data-dk="model" value="'+escapeHtml(d.model)+'" placeholder="Device model"></td><td><input type="number" min="1" step="1" data-di="'+i+'" data-dk="qty" value="'+escapeHtml(d.qty)+'"></td><td><input type="number" min="0" step="0.01" data-di="'+i+'" data-dk="rrp" value="'+escapeHtml(d.rrp)+'"></td><td><strong>'+pMoney(pNum(d.qty)*pNum(d.rrp))+'</strong></td></tr>').join('')||'<tr><td colspan="5" style="text-align:center;padding:18px">Add devices to track redemption and balance.</td></tr>';
+    pEl('deviceRows').querySelectorAll('[data-di]').forEach(el=>el.addEventListener('change',()=>{proposalDevices[Number(el.dataset.di)][el.dataset.dk]=el.value;renderProposal()}));
+    pEl('deviceRows').querySelectorAll('[data-device-remove]').forEach(el=>el.onclick=()=>{proposalDevices.splice(Number(el.dataset.deviceRemove),1);renderProposal()});
+  }
+  pEl('proposalExport').onclick=()=>{
+    if(!proposalRowsData.length){alert('Add proposal lines before exporting.');return}
+    if(typeof XLSX==='undefined'){alert('Excel library unavailable. Please check your internet connection.');return}
+    const wb=XLSX.utils.book_new();
+    const headers=['Company','MSISDN','Existing Plan','Recommended Plan','Monthly Fee','Rebate','Final Price','Type','Device Subsidy','Contract Months','Subsidy Type'];
+    const records=proposalRowsData.map(r=>[r.company,r.msisdn,r.existing,r.plan,r.fee===''?'':pNum(r.fee),r.rebate===''?'':pNum(r.rebate),r.fee===''?'':pNum(r.fee)-pNum(r.rebate),r.type,r.subsidy===''?'':pNum(r.subsidy),r.contract,r.subsidyType]);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([headers,...records]),'Renewal Proposal');
+    const pool=proposalRowsData.filter(r=>r.subsidyType==='Combine').reduce((n,r)=>n+pNum(r.subsidy),0);
+    const spent=proposalDevices.reduce((n,d)=>n+pNum(d.qty)*pNum(d.rrp),0);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Device Model','Qty','RRP','Total RRP'],...proposalDevices.map(d=>[d.model,pNum(d.qty),pNum(d.rrp),pNum(d.qty)*pNum(d.rrp)]),[],['Combined Subsidy Pool',pool],['Total Device RRP',spent],['Balance / Top-up',pool-spent]]),'Combined Subsidy');
+    XLSX.writeFile(wb,'renewal-proposal.xlsx');
+  };
   let toastTimer = null;
   function showToast(msg){
     let t = document.getElementById('toast');
