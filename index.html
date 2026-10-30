@@ -230,7 +230,7 @@
   .proposal-field label{font-size:12px;font-weight:700;color:var(--ink-soft)}
   .proposal-field input,.proposal-field select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--ink);font:inherit;font-size:13px}
   .proposal-table-wrap{overflow:auto;margin:16px 0;border:1px solid var(--line);border-radius:10px}
-  .proposal-table{min-width:1100px;width:100%;border-collapse:collapse}
+  .proposal-copy-actions{display:flex;gap:5px;white-space:nowrap}.proposal-copy-actions button{border:1px solid #bed0e9;background:#eef5ff;color:#154d96;border-radius:6px;padding:7px 9px;font-size:12px;cursor:pointer}.proposal-copy-actions button:disabled{opacity:.35;cursor:not-allowed}\n  .proposal-table{min-width:1550px;width:100%;border-collapse:collapse}
   .proposal-table th{position:static;background:#eef3fa;white-space:nowrap}
   .proposal-table td{padding:8px;border-bottom:1px solid var(--line)}
   .proposal-table input,.proposal-table select{padding:7px;min-width:100px;max-width:220px;border:1px solid var(--line);border-radius:6px;font:inherit}
@@ -393,8 +393,8 @@
       <div class="proposal-kpis" id="proposalKpis"></div>
       <div class="proposal-card">
         <h3>Proposed Subscription Details</h3>
-        <div class="proposal-table-wrap"><table class="proposal-table"><thead><tr><th>Remove</th><th>Company</th><th>Existing Plan</th><th>MSISDN</th><th>Recommended Plan</th><th>Monthly Fee</th><th>Rebate</th><th>Final Price</th><th>Submission Type</th><th>Device Subsidy / Line</th><th>Contract (Months)</th><th>Subsidy Type</th><th>Device Subsidy Type</th></tr></thead><tbody id="proposalRows"></tbody></table></div>
-        <p class="proposal-note">Apply to Selected Lines imports the current filtered lines. Edit any row separately. For a combined subsidy, eligible lines contribute their device subsidy to the shared pool.</p>
+        <div class="proposal-table-wrap"><table class="proposal-table"><thead><tr><th>Remove</th><th>Company</th><th>Existing Plan</th><th>MSISDN</th><th>Recommended Plan</th><th>Monthly Fee</th><th>Rebate</th><th>Final Price</th><th>Submission Type</th><th>Device Subsidy / Line</th><th>Contract (Months)</th><th>Subsidy Type</th><th>Device Subsidy Type</th><th>Device Model (Alacarte)</th><th>Apply Row Settings</th></tr></thead><tbody id="proposalRows"></tbody></table></div>
+        <p class="proposal-note">Apply to Selected Lines imports the current filtered lines. Edit any row separately, then use All, ↑ Prev, or ↓ Next to copy its proposal settings without changing the company or MSISDN. For a combined subsidy, eligible lines contribute their device subsidy to the shared pool.</p>
       </div>
       <div class="proposal-card" id="combinedSection" hidden>
         <h3>Combined Device Subsidy Redemption</h3>
@@ -1147,7 +1147,7 @@
   });
 
   function newProposalRow(r={}){
-    return {company:String(r.comp||''),msisdn:String(r.msisdn||''),existing:String(r.product||''),plan:'',fee:'',rebate:'',type:'Renewal',subsidy:'',contract:'24',subsidyType:'SimOnly',deviceSubsidyType:'Alacarte'};
+    return {company:String(r.comp||''),msisdn:String(r.msisdn||''),existing:String(r.product||''),plan:'',fee:'',rebate:'',type:'Renewal',subsidy:'',contract:'24',subsidyType:'SimOnly',deviceSubsidyType:'Alacarte',deviceModel:''};
   }
   pEl('proposalApply').onclick=()=>{
     const rows=getFiltered();
@@ -1167,7 +1167,7 @@
   pEl('proposalDeviceSubsidyType').addEventListener('change',renderProposal);
   pEl('addDevice').onclick=()=>{proposalDevices.push({model:'',qty:1,rrp:''});renderProposal()};
   function renderProposal(){
-    const fields=['company','existing','msisdn','plan','fee','rebate','type','subsidy','contract','subsidyType'];
+    const fields=['company','existing','msisdn','plan','fee','rebate','type','subsidy','contract','subsidyType','deviceSubsidyType','deviceModel'];
     pEl('proposalRows').innerHTML=proposalRowsData.map((r,i)=>{
       const cell=(k,html)=>'<td>'+html+'</td>';
       const input=(k,typ='text')=>'<input data-i="'+i+'" data-k="'+k+'" type="'+typ+'" '+(typ==='number'?'min="0" step="0.01" ':'')+'value="'+escapeHtml(r[k])+'" '+'>';
@@ -1177,9 +1177,20 @@
         +cell('plan',sel('plan',pPlans))+cell('fee',input('fee','number'))+cell('rebate',input('rebate','number'))
         +cell('final','<strong>'+((r.fee==='')?'—':pMoney(pNum(r.fee)-pNum(r.rebate)))+'</strong>')
         +cell('type',sel('type',pTypes))+cell('subsidy',input('subsidy','number'))
-        +cell('contract',sel('contract',pContracts))+cell('subsidyType',sel('subsidyType',pSubTypes))+cell('deviceSubsidyType',sel('deviceSubsidyType',pDeviceSubTypes))+'</tr>';
-    }).join('')||'<tr><td colspan="13" style="text-align:center;padding:24px">Apply selected lines from Search Data to start your proposal.</td></tr>';
+        +cell('contract',sel('contract',pContracts))+cell('subsidyType',sel('subsidyType',pSubTypes))+cell('deviceSubsidyType',sel('deviceSubsidyType',pDeviceSubTypes))
+        +cell('deviceModel',r.subsidyType==='Device'&&r.deviceSubsidyType==='Alacarte'?input('deviceModel'):'<span style="color:#8b96a7">—</span>')
+        +cell('apply','<div class="proposal-copy-actions"><button type="button" data-copy-action="all" data-copy-i="'+i+'" title="Copy this row proposal settings to all rows">All</button><button type="button" data-copy-action="previous" data-copy-i="'+i+'" '+(i===0?'disabled':'')+' title="Copy to previous row">↑ Prev</button><button type="button" data-copy-action="next" data-copy-i="'+i+'" '+(i===proposalRowsData.length-1?'disabled':'')+' title="Copy to next row">↓ Next</button></div>')+'</tr>';
+    }).join('')||'<tr><td colspan="15" style="text-align:center;padding:24px">Apply selected lines from Search Data to start your proposal.</td></tr>';
     pEl('proposalRows').querySelectorAll('[data-i]').forEach(el=>el.addEventListener('change',()=>{const row=proposalRowsData[Number(el.dataset.i)];row[el.dataset.k]=el.value;if(el.dataset.k==='plan'){const fee=planMonthlyFee(el.value);row.fee=fee===null?'':String(fee);}renderProposal()}));
+    pEl('proposalRows').querySelectorAll('[data-copy-action]').forEach(btn=>btn.addEventListener('click',()=>{
+      const sourceIndex=Number(btn.dataset.copyI);
+      const action=btn.dataset.copyAction;
+      const source=proposalRowsData[sourceIndex];
+      const keys=['plan','fee','rebate','type','subsidy','contract','subsidyType','deviceSubsidyType','deviceModel'];
+      const targets=action==='all'?proposalRowsData.map((_,j)=>j).filter(j=>j!==sourceIndex):[sourceIndex+(action==='next'?1:-1)];
+      targets.forEach(j=>{if(!proposalRowsData[j])return;keys.forEach(k=>proposalRowsData[j][k]=source[k]);});
+      renderProposal();
+    }));
     pEl('proposalRows').querySelectorAll('[data-remove]').forEach(el=>el.onclick=()=>{proposalRowsData.splice(Number(el.dataset.remove),1);renderProposal()});
     const combined=proposalRowsData.filter(r=>r.subsidyType==='Device'&&r.deviceSubsidyType==='Combine');
     const pool=combined.reduce((n,r)=>n+pNum(r.subsidy),0);
@@ -1198,8 +1209,8 @@
     if(!proposalRowsData.length){alert('Add proposal lines before exporting.');return}
     if(typeof XLSX==='undefined'){alert('Excel library unavailable. Please check your internet connection.');return}
     const wb=XLSX.utils.book_new();
-    const headers=['Company','MSISDN','Existing Plan','Recommended Plan','Monthly Fee','Rebate','Final Price','Type','Device Subsidy','Contract Months','Subsidy Type','Device Subsidy Type'];
-    const records=proposalRowsData.map(r=>[r.company,r.msisdn,r.existing,r.plan,r.fee===''?'':pNum(r.fee),r.rebate===''?'':pNum(r.rebate),r.fee===''?'':pNum(r.fee)-pNum(r.rebate),r.type,r.subsidy===''?'':pNum(r.subsidy),r.contract,r.subsidyType,r.deviceSubsidyType]);
+    const headers=['Company','MSISDN','Existing Plan','Recommended Plan','Monthly Fee','Rebate','Final Price','Type','Device Subsidy','Contract Months','Subsidy Type','Device Subsidy Type','Device Model'];
+    const records=proposalRowsData.map(r=>[r.company,r.msisdn,r.existing,r.plan,r.fee===''?'':pNum(r.fee),r.rebate===''?'':pNum(r.rebate),r.fee===''?'':pNum(r.fee)-pNum(r.rebate),r.type,r.subsidy===''?'':pNum(r.subsidy),r.contract,r.subsidyType,r.deviceSubsidyType,r.subsidyType==='Device'&&r.deviceSubsidyType==='Alacarte'?r.deviceModel:'']);
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([headers,...records]),'Renewal Proposal');
     const pool=proposalRowsData.filter(r=>r.subsidyType==='Device'&&r.deviceSubsidyType==='Combine').reduce((n,r)=>n+pNum(r.subsidy),0);
     const spent=proposalDevices.reduce((n,d)=>n+pNum(d.qty)*pNum(d.rrp),0);
