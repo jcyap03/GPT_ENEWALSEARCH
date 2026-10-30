@@ -375,12 +375,12 @@
         <div class="proposal-grid">
           <div class="proposal-field"><label>Customer / Proposal Name</label><input id="proposalCustomer" placeholder="Company / proposal name"></div>
           <div class="proposal-field"><label>Recommended Plan</label><input id="proposalPlan" list="proposalPlanOptions" placeholder="Select or type plan"><datalist id="proposalPlanOptions"></datalist></div>
-          <div class="proposal-field"><label>Monthly Fee (RM / line)</label><input id="proposalFee" type="number" min="0" step="0.01" placeholder="Enter fee"></div>
+          <div class="proposal-field"><label>Monthly Fee (RM / line)</label><input id="proposalFee" type="number" min="0" step="0.01" placeholder="Auto from plan; editable"><small style="color:var(--ink-soft)">Auto-filled from plan name where identifiable; you can change it.</small></div>
           <div class="proposal-field"><label>Rebate (RM / line / month)</label><input id="proposalRebate" type="number" min="0" step="0.01" placeholder="Enter rebate"></div>
           <div class="proposal-field"><label>Final Price (RM / line)</label><input id="proposalFinal" readonly placeholder="Auto-calculated"></div>
           <div class="proposal-field"><label>Type</label><select id="proposalType"><option value="">Select type</option><option>Renewal</option><option>New Sign-up</option><option>MNP</option><option>COP</option></select></div>
           <div class="proposal-field"><label>Device Subsidy (RM / line)</label><input id="proposalSubsidy" type="number" min="0" step="0.01" placeholder="Enter subsidy"></div>
-          <div class="proposal-field"><label>Contract Duration</label><select id="proposalContract"><option value="">Select duration</option><option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="0">No contract</option></select></div>
+          <div class="proposal-field"><label>Contract Duration</label><select id="proposalContract"><option value="">Select duration</option><option value="12">12 months</option><option value="24" selected>24 months</option><option value="36">36 months</option><option value="0">No contract</option></select></div>
           <div class="proposal-field"><label>Subsidy Type</label><select id="proposalSubsidyType"><option value="">Select subsidy type</option><option value="None">No Subsidy</option><option value="Individual">Individual</option><option value="Combine">Combine</option></select></div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px">
@@ -1125,15 +1125,36 @@
     pEl('proposalFinal').value=fee===''?'':(pNum(fee)-pNum(rebate)).toFixed(2);
   }
   ['proposalFee','proposalRebate'].forEach(id=>pEl(id).addEventListener('input',updateProposalFinal));
+  // Recognize the advertised plan denomination, not 5G, tenure, or a device model.
+  // Unrecognized plan names are left for manual entry; no price is invented.
+  function planMonthlyFee(name){
+    const value=String(name||'').trim();
+    const patterns=[
+      /\b(?:CDB|CELCOMDIGI BUSINESS POSTPAID|BUSINESS POSTPAID)(?:\s+5G)?(?:\s+WIFI)?\s*(\d{2,4})(?=\b|[^\d])/i,
+      /\b(?:CDB\s+WIFI|BUSINESS\s+WIFI)\s*(\d{2,4})(?=\b|[^\d])/i
+    ];
+    for(const pattern of patterns){const m=value.match(pattern);if(m)return Number(m[1]);}
+    return null;
+  }
+  pEl('proposalPlan').addEventListener('change',()=>{
+    const fee=planMonthlyFee(pEl('proposalPlan').value);
+    if(fee!==null)pEl('proposalFee').value=fee.toFixed(2);
+    else pEl('proposalFee').value='';
+    updateProposalFinal();
+  });
+
   function newProposalRow(r={}){
-    return {company:String(r.comp||''),msisdn:String(r.msisdn||''),existing:String(r.product||''),plan:'',fee:'',rebate:'',type:'Renewal',subsidy:'',contract:'',subsidyType:''};
+    return {company:String(r.comp||''),msisdn:String(r.msisdn||''),existing:String(r.product||''),plan:'',fee:'',rebate:'',type:'Renewal',subsidy:'',contract:'24',subsidyType:''};
   }
   pEl('proposalApply').onclick=()=>{
     const rows=getFiltered();
     if(!rows.length){alert('No matching lines in Search Data.');return}
     const known=new Set(proposalRowsData.map(r=>r.msisdn+'|'+r.company));
     rows.forEach(r=>{const key=String(r.msisdn)+'|'+String(r.comp);if(!known.has(key)){proposalRowsData.push(newProposalRow(r));known.add(key)}});
-    const values={plan:pEl('proposalPlan').value,fee:pEl('proposalFee').value,rebate:pEl('proposalRebate').value,type:pEl('proposalType').value,subsidy:pEl('proposalSubsidy').value,contract:pEl('proposalContract').value,subsidyType:pEl('proposalSubsidyType').value};
+    const selectedPlan=pEl('proposalPlan').value;
+    const inferredFee=planMonthlyFee(selectedPlan);
+    const effectiveFee=pEl('proposalFee').value!==''?pEl('proposalFee').value:(inferredFee===null?'':String(inferredFee));
+    const values={plan:selectedPlan,fee:effectiveFee,rebate:pEl('proposalRebate').value,type:pEl('proposalType').value,subsidy:pEl('proposalSubsidy').value,contract:pEl('proposalContract').value,subsidyType:pEl('proposalSubsidyType').value};
     proposalRowsData.forEach(r=>{for(const [k,v] of Object.entries(values))if(v!=='')r[k]=v});
     renderProposal();
   };
@@ -1156,7 +1177,7 @@
         +cell('type',sel('type',pTypes))+cell('subsidy',input('subsidy','number'))
         +cell('contract',sel('contract',pContracts))+cell('subsidyType',sel('subsidyType',pSubTypes))+'</tr>';
     }).join('')||'<tr><td colspan="12" style="text-align:center;padding:24px">Apply selected lines from Search Data to start your proposal.</td></tr>';
-    pEl('proposalRows').querySelectorAll('[data-i]').forEach(el=>el.addEventListener('change',()=>{proposalRowsData[Number(el.dataset.i)][el.dataset.k]=el.value;renderProposal()}));
+    pEl('proposalRows').querySelectorAll('[data-i]').forEach(el=>el.addEventListener('change',()=>{const row=proposalRowsData[Number(el.dataset.i)];row[el.dataset.k]=el.value;if(el.dataset.k==='plan'){const fee=planMonthlyFee(el.value);row.fee=fee===null?'':String(fee);}renderProposal()}));
     pEl('proposalRows').querySelectorAll('[data-remove]').forEach(el=>el.onclick=()=>{proposalRowsData.splice(Number(el.dataset.remove),1);renderProposal()});
     const combined=proposalRowsData.filter(r=>r.subsidyType==='Combine');
     const pool=combined.reduce((n,r)=>n+pNum(r.subsidy),0);
